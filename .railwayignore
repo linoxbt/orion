@@ -1,0 +1,11 @@
+# Upload context for `railway up`. The service's root directory is /backend, so
+# everything outside it is dead weight - and node_modules/.venv/.next would push
+# the upload into the hundreds of megabytes.
+web/
+docs/
+.git/
+backend/.venv/
+backend/.pytest_cache/
+backend/orion.db
+**/__pycache__/
+**/*.pyc

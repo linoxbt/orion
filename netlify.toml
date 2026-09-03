@@ -1,0 +1,72 @@
+# Orion - Netlify build config.
+#
+# The Next.js app lives in web/, not the repo root (the root also holds
+# backend/ and docs/, neither of which is part of this site). web/ is a
+# standalone Next.js project with its own package-lock.json - not an npm
+# workspace member - so `base` here is enough, with no cross-directory
+# install step.
+
+[build]
+  base = "web"
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# The deployed backend (FastAPI on Railway, service `backend` in the `orion`
+# project). Both names point at the same host:
+#   NEXT_PUBLIC_API_URL is read in the browser bundle for the public GETs
+#     (health, playbooks, bill ingestion).
+#   API_URL is read server-side by the proxy routes under
+#     web/app/api/negotiations/*, which attach the admin key.
+# Neither is a secret - it's a public URL - so they live in config rather
+# than only in the Netlify UI, which keeps a fresh clone deployable.
+[build.environment]
+  NEXT_PUBLIC_API_URL = "https://backend-production-cf6d9.up.railway.app"
+  API_URL = "https://backend-production-cf6d9.up.railway.app"
+  # Dynamic's project identifier. Public by design - it names the project to
+  # Dynamic's hosted widget and authorizes nothing. Authorization happens in
+  # web/lib/auth.ts, which verifies the signed session JWT against Dynamic's
+  # JWKS before any privileged route uses the admin key.
+  NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID = "f3e8d79d-80c3-4332-b740-39c22eef6428"
+
+# Deploy Previews and branch builds get the same backend. Split this out if a
+# staging backend ever exists.
+[context.deploy-preview.environment]
+  NEXT_PUBLIC_API_URL = "https://backend-production-cf6d9.up.railway.app"
+  API_URL = "https://backend-production-cf6d9.up.railway.app"
+  # Dynamic's project identifier. Public by design - it names the project to
+  # Dynamic's hosted widget and authorizes nothing. Authorization happens in
+  # web/lib/auth.ts, which verifies the signed session JWT against Dynamic's
+  # JWKS before any privileged route uses the admin key.
+  NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID = "f3e8d79d-80c3-4332-b740-39c22eef6428"
+
+[context.branch-deploy.environment]
+  NEXT_PUBLIC_API_URL = "https://backend-production-cf6d9.up.railway.app"
+  API_URL = "https://backend-production-cf6d9.up.railway.app"
+  # Dynamic's project identifier. Public by design - it names the project to
+  # Dynamic's hosted widget and authorizes nothing. Authorization happens in
+  # web/lib/auth.ts, which verifies the signed session JWT against Dynamic's
+  # JWKS before any privileged route uses the admin key.
+  NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID = "f3e8d79d-80c3-4332-b740-39c22eef6428"
+
+# SECRET - set in the Netlify UI only (Site configuration -> Environment
+# variables), never here, because this file is committed:
+#   ADMIN_API_KEY   must match the backend's own ADMIN_API_KEY. It gates the
+#                   server-side proxy routes that start negotiations, place
+#                   calls and charge the success fee, and it is what the
+#                   AssemblyAI transcript webhook authenticates with. It is
+#                   read only in route handlers, so it never reaches the
+#                   browser bundle.
+#
+# Already configured on the production context of the orionbuild site.
+
+# The live call feed is server-sent events proxied through
+# web/app/api/negotiations/[taskId]/events. Buffering it would defeat the
+# point - the stream only ends when the call does.
+[[headers]]
+  for = "/api/negotiations/*/events"
+  [headers.values]
+    Cache-Control = "no-cache, no-transform"
+    X-Accel-Buffering = "no"
