@@ -17,6 +17,14 @@ class Settings(BaseSettings):
     # d'Ivoire.
     paystack_secret_key: str = ""
     paystack_currency: str = "NGN"
+
+    # Which methods the checkout offers, in order. Card is listed first even
+    # though a new Paystack account usually cannot take cards yet: Paystack
+    # ignores a channel the account has not been approved for, so listing it
+    # costs nothing now and makes card appear the moment it is enabled,
+    # without a deploy. Every channel being inactive is what fails, so keep at
+    # least one the account actually has.
+    paystack_channels: str = "card,bank,ussd,bank_transfer"
     # What the upgrade costs, in whole units of paystack_currency. NGN is the
     # default because a Nigerian Paystack account settles in naira; set both
     # together when charging in another currency.

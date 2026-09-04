@@ -38,6 +38,18 @@ def is_configured() -> bool:
     return bool(settings.paystack_secret_key)
 
 
+def channels() -> list[str]:
+    """The payment methods to offer, in order.
+
+    A channel the account is not approved for is ignored rather than rejected,
+    so card can sit at the front of this list before it is enabled and start
+    appearing the moment it is. What fails is a list with nothing active in it,
+    which is why this falls back rather than returning empty.
+    """
+    named = [c.strip() for c in settings.paystack_channels.split(",") if c.strip()]
+    return named or ["card", "bank", "ussd", "bank_transfer"]
+
+
 def _headers() -> dict[str, str]:
     if not settings.paystack_secret_key:
         raise PaystackNotConfigured("PAYSTACK_SECRET_KEY is not set")
@@ -56,6 +68,10 @@ async def start_upgrade(user_id: str, email: str, amount: int, currency: str) ->
         # Echoed back on the webhook, so the payment can be matched to an
         # account without trusting anything the browser says.
         "metadata": {"user_id": user_id},
+        # Without this Paystack decides for itself and a new account tends to
+        # show bank transfer alone. Naming the channels puts card first and
+        # offers the alternatives people in these markets actually use.
+        "channels": channels(),
         # No query string of our own. Paystack appends "?trxref=..&reference=.."
         # verbatim, so a URL that already carries a "?" ends up with two, and
         # the first existing parameter swallows trxref:

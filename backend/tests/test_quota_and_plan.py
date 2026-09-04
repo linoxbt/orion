@@ -205,3 +205,83 @@ class TestCallbackUrl:
         params = parse_qs(urlparse(bad).query)
         assert "trxref" not in params
         assert params["upgraded"] == ["1?trxref=T1"]
+
+
+class TestChannels:
+    """Which payment methods the checkout offers.
+
+    A new Paystack account frequently cannot take cards, and the checkout then
+    shows bank transfer alone. Naming the channels fixes that, with one trap:
+    Paystack ignores a channel the account lacks, but rejects the whole
+    transaction if none of them is active.
+    """
+
+    def test_card_is_offered_first(self, monkeypatch):
+        from app.config import settings
+        from app.services import paystack as ps
+
+        monkeypatch.setattr(settings, "paystack_channels", "card,bank,ussd,bank_transfer")
+        assert ps.channels()[0] == "card"
+
+    def test_alternatives_are_offered_too(self, monkeypatch):
+        """Card alone would be an empty checkout on an account without it."""
+        from app.config import settings
+        from app.services import paystack as ps
+
+        monkeypatch.setattr(settings, "paystack_channels", "card,bank,ussd,bank_transfer")
+        assert {"bank", "ussd", "bank_transfer"} <= set(ps.channels())
+
+    def test_the_list_is_configurable(self, monkeypatch):
+        from app.config import settings
+        from app.services import paystack as ps
+
+        monkeypatch.setattr(settings, "paystack_channels", "card")
+        assert ps.channels() == ["card"]
+
+    def test_whitespace_and_blanks_are_tolerated(self, monkeypatch):
+        from app.config import settings
+        from app.services import paystack as ps
+
+        monkeypatch.setattr(settings, "paystack_channels", " card , , ussd ")
+        assert ps.channels() == ["card", "ussd"]
+
+    def test_an_empty_setting_never_sends_an_empty_list(self, monkeypatch):
+        """An empty channels array is what makes Paystack refuse outright."""
+        from app.config import settings
+        from app.services import paystack as ps
+
+        monkeypatch.setattr(settings, "paystack_channels", "")
+        assert ps.channels()
+
+    def test_the_channels_reach_paystack(self, monkeypatch):
+        import asyncio
+
+        from app.config import settings
+        from app.services import paystack as ps
+
+        monkeypatch.setattr(settings, "paystack_secret_key", "sk_test_1")
+        monkeypatch.setattr(settings, "public_app_url", "https://example.com")
+        monkeypatch.setattr(settings, "paystack_channels", "card,ussd")
+        sent = {}
+
+        class FakeResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {"data": {"authorization_url": "https://pay", "reference": "T1"}}
+
+        class FakeClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            async def post(self, url, headers=None, json=None):
+                sent.update(json or {})
+                return FakeResponse()
+
+        monkeypatch.setattr(ps.httpx, "AsyncClient", lambda **kw: FakeClient())
+        asyncio.run(ps.start_upgrade("user-1", "a@b.com", 22500, "NGN"))
+        assert sent["channels"] == ["card", "ussd"]
