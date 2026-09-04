@@ -15,6 +15,8 @@ id the caller has already verified. A leaked publishable key opens nothing.
 import logging
 from typing import Any
 
+import uuid
+
 import httpx
 
 from app.config import settings
@@ -154,7 +156,27 @@ async def save_session(session: NegotiationSession) -> None:
     res.raise_for_status()
 
 
+def _could_exist(task_id: str) -> bool:
+    """Whether this id could name a row at all.
+
+    negotiations.task_id is a uuid column, so PostgREST answers 400 (22P02,
+    "invalid input syntax for type uuid") rather than an empty result for
+    anything that is not one. That turned every malformed id into a 500:
+    GET /api/receipts/<junk> was a server error any stranger could trigger,
+    and the media-stream WebSocket rejected a real call's id with 500 instead
+    of closing cleanly. An id that cannot match is simply not found.
+    """
+    try:
+        uuid.UUID(task_id)
+    except (ValueError, AttributeError, TypeError):
+        return False
+    return True
+
+
 async def get_session(task_id: str) -> NegotiationSession | None:
+    if not _could_exist(task_id):
+        return None
+
     res = await _http().get(
         f"{_base()}/negotiations",
         headers=_headers(),
