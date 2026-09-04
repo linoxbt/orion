@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Instrument_Serif, Inter, IBM_Plex_Mono } from "next/font/google";
+import { Instrument_Serif, Instrument_Sans, Inter, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { MotionProvider } from "@/components/motion-provider";
 import { ThemeProvider, themeInitScript } from "@/components/theme-provider";
@@ -22,6 +22,15 @@ const sans = Inter({
   display: "swap",
 });
 
+// The landing page's own face. Instrument Sans is one of the families
+// stacks.co actually ships (their Matter is licensed and not redistributable),
+// so this is the closest honest match rather than a lookalike guess.
+const grotesk = Instrument_Sans({
+  subsets: ["latin"],
+  variable: "--font-grotesk",
+  display: "swap",
+});
+
 const mono = IBM_Plex_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
@@ -39,7 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${display.variable} ${sans.variable} ${mono.variable}`}
+      className={`${display.variable} ${sans.variable} ${grotesk.variable} ${mono.variable}`}
       suppressHydrationWarning
     >
       <head>

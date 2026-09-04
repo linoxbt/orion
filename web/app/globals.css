@@ -144,3 +144,69 @@ select:focus-visible,
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Landing page.
+
+   A dark marketing surface in front of a light product. The palette is taken
+   from stacks.co's own stylesheet rather than eyeballed: #131416 ground,
+   #f4f3f0 warm off-white text, #fc6432 accent, #818688 muted.
+
+   Scoped to .landing so none of it leaks into the app shell or fights the
+   theme toggle, and fixed regardless of light or dark preference - this page
+   is one deliberate look, not a themed surface.
+--------------------------------------------------------------------------- */
+.landing {
+  --l-bg: #131416;
+  --l-surface: #1a1b1e;
+  --l-surface-2: #27282b;
+  --l-text: #f4f3f0;
+  --l-muted: #818688;
+  --l-line: #27282b;
+  --l-line-strong: #3a3b3f;
+  --l-accent: #fc6432;
+  --l-accent-hover: #ff7a4e;
+
+  background: var(--l-bg);
+  color: var(--l-text);
+  min-height: 100vh;
+  /* Long marquee content must never widen the page itself. */
+  overflow-x: clip;
+}
+
+.font-grotesk {
+  font-family: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* The track holds two identical copies, so -50% lands the second exactly where
+   the first started. */
+.marquee-track {
+  animation: marquee-scroll 38s linear infinite;
+}
+
+@keyframes marquee-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+/* A permanent sideways crawl is a genuine accessibility problem, not just a
+   preference. */
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+    flex-wrap: wrap;
+  }
+}
+
+/* Safari shows a default disclosure triangle that breaks the row layout. */
+.landing details > summary::-webkit-details-marker {
+  display: none;
+}
