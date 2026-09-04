@@ -7,7 +7,7 @@ import { AccountDetailsForm } from "@/components/account-details-form";
 import { BrowserCall } from "@/components/browser-call";
 import { ConsentForm } from "@/components/consent-form";
 import { OutboundCall } from "@/components/outbound-call";
-import { CallRecordingPlayer } from "@/components/call-recording";
+import { CallHistory } from "@/components/call-history";
 import {
   ApiError,
   chargeNegotiation,
@@ -112,7 +112,7 @@ export default function NegotiationStatusPage({ params }: { params: Promise<{ ta
 
   return (
     <div>
-      <div className="mx-auto max-w-2xl px-6 pb-24">
+      <div className="mx-auto max-w-4xl px-6 pb-24">
         <FadeIn>
           <header className="py-12">
             <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted">Negotiation</p>
@@ -125,6 +125,66 @@ export default function NegotiationStatusPage({ params }: { params: Promise<{ ta
           </header>
 
           {error && <p className="text-sm text-fail">{error}</p>}
+
+          {session && (
+            <>
+              {/* What this negotiation is worth, before any of the detail. */}
+              <div className="grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-4">
+                <Kpi
+                  label="Monthly saving"
+                  value={
+                    session.previous_rate != null && session.new_rate != null
+                      ? `$${(session.previous_rate - session.new_rate).toFixed(2)}`
+                      : "—"
+                  }
+                  tone={
+                    session.previous_rate != null &&
+                    session.new_rate != null &&
+                    session.previous_rate > session.new_rate
+                      ? "good"
+                      : undefined
+                  }
+                  note={session.verified ? "verified from the recording" : "not verified yet"}
+                />
+                <Kpi
+                  label="Was"
+                  value={session.previous_rate != null ? `$${session.previous_rate.toFixed(2)}` : "—"}
+                  note="per month"
+                />
+                <Kpi
+                  label="Now"
+                  value={session.new_rate != null ? `$${session.new_rate.toFixed(2)}` : "—"}
+                  note="per month"
+                />
+                <Kpi
+                  label="A year"
+                  value={
+                    session.previous_rate != null && session.new_rate != null
+                      ? `$${((session.previous_rate - session.new_rate) * 12).toFixed(2)}`
+                      : "—"
+                  }
+                  note="if the rate holds"
+                />
+              </div>
+
+              {/* Orion's own read, written after the call. */}
+              {session.recommendation && (
+                <section className="mt-6 rounded-lg border border-accent/40 bg-accent-soft p-7">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-accent">
+                    What Orion makes of it
+                  </p>
+                  <p className="mt-4 text-[15px] leading-relaxed text-ink">
+                    {session.recommendation}
+                  </p>
+                  {session.outcome && (
+                    <p className="mt-3 text-[13px] leading-relaxed text-ink-soft">
+                      {session.outcome}
+                    </p>
+                  )}
+                </section>
+              )}
+            </>
+          )}
 
           {session && (
             <section className="rounded border border-line bg-surface p-6">
@@ -171,12 +231,12 @@ export default function NegotiationStatusPage({ params }: { params: Promise<{ ta
           {session && session.status !== "pending" && !session.is_sample && (
             <section className="mt-6 rounded-lg border border-line bg-surface p-7">
               <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted">
-                Listen back
+                Call history
               </p>
               <h2 className="mt-3 font-display text-[1.5375rem] leading-snug text-ink">
-                Hear the call
+                Every call made
               </h2>
-              <CallRecordingPlayer taskId={taskId} />
+              <CallHistory taskId={taskId} />
             </section>
           )}
 
@@ -255,6 +315,36 @@ export default function NegotiationStatusPage({ params }: { params: Promise<{ ta
           {actionError && <p className="mt-3 text-sm text-partial">{actionError}</p>}
         </FadeIn>
       </div>
+    </div>
+  );
+}
+
+/** One figure in the header strip.
+ *
+ * Big-number tiles are spent only here, on the four numbers this page exists
+ * to report, rather than on every block. */
+function Kpi({
+  label,
+  value,
+  note,
+  tone,
+}: {
+  label: string;
+  value: string;
+  note?: string;
+  tone?: "good";
+}) {
+  return (
+    <div className="bg-surface p-5">
+      <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted">{label}</p>
+      <p
+        className={`tabular mt-3 text-[1.75rem] font-medium leading-none tracking-tight ${
+          tone === "good" ? "text-pass" : "text-ink"
+        }`}
+      >
+        {value}
+      </p>
+      {note && <p className="mt-2 text-[12px] leading-snug text-muted">{note}</p>}
     </div>
   );
 }

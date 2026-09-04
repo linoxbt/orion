@@ -146,6 +146,7 @@ export interface NegotiationSession {
   escalation_reason: string | null;
   recording_url: string | null;
   recording_path: string | null;
+  recommendation: string | null;
   transcript_id: string | null;
   verification_source: string | null;
 }
@@ -414,6 +415,27 @@ export interface CallRecording {
   url: string | null;
   expires_in: number | null;
   reason: string | null;
+}
+
+export interface CallRecord {
+  call_sid: string | null;
+  started_at: string;
+  answered: boolean;
+  ended_at: string | null;
+  end_reason: string | null;
+  duration_seconds: number | null;
+  outcome: string | null;
+  url: string | null;
+  download_name: string | null;
+}
+
+/** Every call made on a negotiation, newest first.
+ *
+ * A negotiation is dialled more than once, so listing only the most recent
+ * recording hid most of what was done on the customer's behalf. */
+export async function listCalls(taskId: string): Promise<CallRecord[]> {
+  const res = await fetch(`/api/negotiations/${taskId}/calls`, { headers: authHeaders() });
+  return handle<CallRecord[]>(res);
 }
 
 /** Where to play a finished call back from.
