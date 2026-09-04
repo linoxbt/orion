@@ -43,9 +43,11 @@ def test_voice_webhook_returns_twiml_stream_pointing_at_websocket(client, monkey
     assert res.headers["content-type"].startswith("application/xml")
     body = res.text
     assert "<Connect>" in body
-    assert "/telephony/stream?taskId=abc-123" in body
-    # Signed, because a WebSocket upgrade carries no Twilio signature.
-    assert "&amp;token=" in body or "&token=" in body
+    assert "/telephony/stream/abc-123/" in body
+    # Path segments, not a query string: an "&" here is escaped to "&amp;"
+    # in the XML and passed through literally by Twilio, which is what
+    # silently refused every real call.
+    assert "&" not in body
     assert "wss://" in body or "ws://" in body
 
 
@@ -53,7 +55,7 @@ def test_stream_closes_for_unknown_task_id(client):
     # The server closes with 1008 before accepting, which the test client
     # surfaces as WebSocketDisconnect on connect rather than a clean close.
     with pytest.raises(WebSocketDisconnect) as exc_info:
-        with client.websocket_connect("/telephony/stream?taskId=does-not-exist"):
+        with client.websocket_connect(f"/telephony/stream/does-not-exist/{mint_stream_token('does-not-exist')}"):
             pass
     assert exc_info.value.code == 1008
 
@@ -71,7 +73,7 @@ def test_stream_closes_assemblyai_not_configured_for_known_task(client):
     # immediately close rather than hang or crash.
     token = mint_stream_token(task_id)
     with client.websocket_connect(
-        f"/telephony/stream?taskId={task_id}&token={token}"
+        f"/telephony/stream/{task_id}/{token}"
     ) as ws:
         with pytest.raises(WebSocketDisconnect) as exc_info:
             ws.receive_text()

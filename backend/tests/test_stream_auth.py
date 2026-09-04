@@ -86,14 +86,30 @@ class TestStreamEndpoint:
             },
         ).json()["task_id"]
 
-    def test_the_websocket_refuses_an_unsigned_connection_to_a_real_call(
+    def test_a_connection_carrying_no_token_does_not_even_reach_the_route(
         self, client, real_task
     ):
-        """The original hole, end to end."""
+        """The original hole, closed structurally.
+
+        The token is a required path segment now, so a URL without one matches
+        no route at all rather than reaching a handler that has to refuse it.
+        The refusal is the same either way; this one just happens earlier."""
+        from starlette.websockets import WebSocketDisconnect
+
+        with pytest.raises(WebSocketDisconnect):
+            with client.websocket_connect(f"/telephony/stream/{real_task}/") as ws:
+                ws.receive_text()
+
+    def test_a_connection_carrying_a_bad_token_is_refused_by_the_guard(
+        self, client, real_task
+    ):
+        """A well-formed URL with a token that does not verify."""
         from starlette.websockets import WebSocketDisconnect
 
         with pytest.raises(WebSocketDisconnect) as caught:
-            with client.websocket_connect(f"/telephony/stream?taskId={real_task}") as ws:
+            with client.websocket_connect(
+                f"/telephony/stream/{real_task}/1788500000.{'0' * 64}"
+            ) as ws:
                 ws.receive_text()
         assert caught.value.code == 1008
 
@@ -116,7 +132,7 @@ class TestStreamEndpoint:
         try:
             token = mint_stream_token(real_task)
             with client.websocket_connect(
-                f"/telephony/stream?taskId={real_task}&token={token}"
+                f"/telephony/stream/{real_task}/{token}"
             ):
                 pass
         finally:
@@ -129,6 +145,6 @@ class TestStreamEndpoint:
 
         other = mint_stream_token("someone-elses-call")
         with pytest.raises(WebSocketDisconnect) as caught:
-            with client.websocket_connect(f"/telephony/stream?taskId=mine&token={other}") as ws:
+            with client.websocket_connect(f"/telephony/stream/mine/{other}") as ws:
                 ws.receive_text()
         assert caught.value.code == 1008

@@ -61,7 +61,7 @@ class TestEndpoints:
         token = mint_stream_token(task)
         with pytest.raises(WebSocketDisconnect) as caught:
             with client.websocket_connect(
-                f"/telephony/stream?taskId={task}&token={token}"
+                f"/telephony/stream/{task}/{token}"
             ) as ws:
                 ws.receive_text()
         assert caught.value.code == 1008

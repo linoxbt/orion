@@ -48,8 +48,24 @@ REDACT_POLICIES = [
     "us_social_security_number",
 ]
 
-_EXTRACTION_PROMPT = """You are reading a transcript of a recorded phone call in which an AI agent \
-negotiated a customer's bill with a company representative.
+# How short a recording has to be before there is plainly no conversation in
+# it. A greeting and a hang-up fit comfortably inside this.
+MIN_CONVERSATION_SECONDS = 8
+
+# Outcomes that are established fact rather than interpretation. Once one of
+# these is set, the transcript read-back must not replace it.
+_FACTUAL_OUTCOMES = {"not_answered", "too_short"}
+
+_EXTRACTION_PROMPT = """You are reading a transcript of a recording of an outbound phone call. \
+An AI agent was calling a company to negotiate a customer's bill. The call may or may not have \
+reached a real person: it may be silence, a voicemail greeting, a hold loop, an automated menu, \
+or a few seconds of nothing.
+
+Decide first whether an actual conversation with a representative took place. If it did not, say \
+so plainly - "The call was not answered", "The call reached voicemail", "Nobody spoke" - set \
+"agreed" to false, and leave every rate and number null. Never characterise what a representative \
+said, or failed to say, when no representative spoke. Describing an unanswered call as one where \
+someone "did not make a clear statement" is wrong: it invents a person.
 
 Return ONLY a JSON object with these keys:
   "agreed": boolean - did the representative actually commit to a change?
@@ -80,13 +96,42 @@ async def start_verification(session: NegotiationSession) -> None:
     events.publish(session.task_id, {"type": "status", "status": "awaiting_recording"})
 
 
-async def ingest_recording(session: NegotiationSession, recording_url: str) -> str | None:
+async def ingest_recording(
+    session: NegotiationSession, recording_url: str, duration_seconds: int = 0
+) -> str | None:
     """Download the Twilio recording, upload it, and submit it for transcription.
 
     Returns the transcript id, or None if AssemblyAI or Twilio isn't configured.
     """
     session.recording_url = recording_url
     await save_session(session)
+
+    # Nothing was said, so there is nothing to read back.
+    #
+    # A call nobody answered still leaves a recording of a second or two, and
+    # feeding that to a model which has been told it is reading a negotiation
+    # is exactly how Orion came to report that "the representative didn't make
+    # a clear statement" about a call that was never picked up. The factual
+    # outcome the status webhook already wrote is the true one; keep it.
+    if not session.answered_at:
+        logger.info("Skipping verification for %s: never answered", session.task_id)
+        session.outcome = session.outcome or "The call was not answered."
+        session.verification_source = "not_answered"
+        await save_session(session)
+        return None
+
+    if duration_seconds and duration_seconds < MIN_CONVERSATION_SECONDS:
+        logger.info(
+            "Skipping verification for %s: only %ss of audio",
+            session.task_id,
+            duration_seconds,
+        )
+        session.outcome = session.outcome or (
+            f"The call ended after {duration_seconds} seconds, before anything was agreed."
+        )
+        session.verification_source = "too_short"
+        await save_session(session)
+        return None
 
     auth = (settings.twilio_account_sid, settings.twilio_auth_token)
     async with httpx.AsyncClient(timeout=120.0) as client:
@@ -192,7 +237,11 @@ async def apply_transcript(session: NegotiationSession, transcript_id: str) -> N
         events.publish(session.task_id, {"type": "status", "status": "needs_human_review"})
         return session
 
-    session.outcome = extracted.get("outcome") or session.outcome
+    # A fact never loses to a guess. When the call ended in a way that already
+    # explains itself - nobody answered, the line was busy, it failed - that
+    # outcome stands, and the transcript read-back may not paper over it.
+    if session.verification_source not in _FACTUAL_OUTCOMES:
+        session.outcome = extracted.get("outcome") or session.outcome
     # Tool calls made during the call are first-hand and outrank the transcript
     # read-back, so they are only filled in here, never overwritten.
     if session.confirmation_number is None:

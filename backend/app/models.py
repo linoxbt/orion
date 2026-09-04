@@ -198,6 +198,13 @@ class NegotiationSession(BaseModel):
     status: NegotiationStatus = NegotiationStatus.PENDING
     call_sid: str | None = None
 
+    # When the far end actually picked up, written only by the status webhook
+    # on CallStatus=in-progress. `status` cannot answer this: it is set to
+    # CALLING the moment dialling is accepted AND again on answer, so it means
+    # two different things, and the UI read the first as the second and
+    # started the call timer while the phone was still ringing.
+    answered_at: str | None = None
+
     # A worked example seeded on a new account so the dashboard has something
     # to show. Flagged rather than silently indistinguishable: an unmarked
     # fake saving would inflate the totals and read as money someone actually

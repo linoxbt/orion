@@ -22,6 +22,10 @@ export interface CallScreenProps {
   state: CallScreenState;
   /** True while the agent is talking, so you can see who has the floor. */
   agentSpeaking?: boolean;
+  /** When the far end actually picked up, ISO 8601. The timer is anchored to
+   *  this rather than to when this screen noticed, so it stays correct across
+   *  a reconnect or a refresh mid-call. */
+  answeredAt?: string | null;
   muted: boolean;
   /** 0 silent, 1 normal, 2 speaker. */
   volume: number;
@@ -48,7 +52,7 @@ const STATE_LABEL: Record<CallScreenState, string> = {
  * the ringing and told you a call had lasted twenty seconds when nobody had
  * answered it yet.
  */
-function useElapsed(running: boolean): string {
+function useElapsed(running: boolean, since?: string | null): string {
   const [seconds, setSeconds] = useState(0);
 
   useEffect(() => {
@@ -56,16 +60,19 @@ function useElapsed(running: boolean): string {
       setSeconds(0);
       return;
     }
-    // Anchored to a timestamp rather than incremented, so a backgrounded tab
-    // (which throttles timers) does not under-count the call.
-    const startedAt = Date.now();
+    // Anchored to when the call was actually answered, falling back to now if
+    // that is unknown. Incrementing a counter instead would under-count in a
+    // backgrounded tab, and starting from "now" would restart the clock on
+    // every reconnect.
+    const parsed = since ? Date.parse(since) : NaN;
+    const startedAt = Number.isFinite(parsed) ? parsed : Date.now();
     setSeconds(0);
     const timer = setInterval(
       () => setSeconds(Math.floor((Date.now() - startedAt) / 1000)),
       500
     );
     return () => clearInterval(timer);
-  }, [running]);
+  }, [running, since]);
 
   const mm = Math.floor(seconds / 60)
     .toString()
@@ -117,6 +124,7 @@ export function CallScreen({
   subtitle,
   state,
   agentSpeaking = false,
+  answeredAt = null,
   muted,
   volume,
   onToggleMute,
@@ -127,7 +135,7 @@ export function CallScreen({
 }: CallScreenProps) {
   // Ringing is a live call too - the avatar should pulse while it rings.
   const live = state === "active" || state === "connecting" || state === "ringing";
-  const elapsed = useElapsed(state === "active");
+  const elapsed = useElapsed(state === "active", answeredAt);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);

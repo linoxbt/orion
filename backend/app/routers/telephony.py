@@ -11,13 +11,14 @@ from fastapi import (
 from twilio.twiml.voice_response import Connect, VoiceResponse
 
 import logging
+from datetime import datetime, timezone
 
 from app.config import settings
 from app.models import NegotiationStatus
 from app.services import events
 from app.services.live_bridge import run_bridge
 from app.services.twilio_client import (
-    mint_stream_token,
+    stream_websocket_url,
     status_webhook_url,
     recording_webhook_url,
     validate_signature,
@@ -64,34 +65,41 @@ async def voice_webhook(
     if not x_twilio_signature or not validate_signature(voice_webhook_url(taskId), params, x_twilio_signature):
         raise HTTPException(status_code=403, detail="invalid_twilio_signature")
 
-    stream_url = settings.base_url.replace("https://", "wss://", 1).replace("http://", "ws://", 1)
     response = VoiceResponse()
     connect = Connect()
-    # Signed, because the WebSocket itself carries no Twilio signature.
-    token = mint_stream_token(taskId)
-    connect.stream(url=f"{stream_url}/telephony/stream?taskId={taskId}&token={token}")
+    # Signed, because the WebSocket itself carries no Twilio signature. Built
+    # as a single path with no query string: two query parameters need an "&",
+    # which this XML escapes to "&amp;" and Twilio passes through literally,
+    # which is what silently broke every real call.
+    connect.stream(url=stream_websocket_url(taskId))
     response.append(connect)
     return Response(content=str(response), media_type="application/xml")
 
 
-@router.websocket("/stream")
-async def media_stream(
-    websocket: WebSocket, taskId: str = Query(...), token: str | None = Query(default=None)
-) -> None:
+@router.websocket("/stream/{task_id}/{token}")
+async def media_stream(websocket: WebSocket, task_id: str, token: str) -> None:
     """Bidirectional audio bridge for one active call - see
     app/services/live_bridge.py, which picks the AssemblyAI voice backend.
 
     Audio is not resampled in either direction any more: both backends speak
     Twilio's native 8kHz mu-law, so the old audioop conversion layer is gone.
+
+    The task id and token are PATH segments, not query parameters, and that is
+    load-bearing rather than stylistic. With two query parameters the URL needs
+    an "&", the TwiML serialiser escapes it to "&amp;", and Twilio passes that
+    through literally - so the second parameter arrived named "amp;token", the
+    token looked missing, this handler refused the socket, and because
+    <Connect> is a terminal verb Twilio hung up the moment the call was
+    answered. A single path has nothing to escape.
     """
+    taskId = task_id  # the rest of this function reads better in one spelling
+
     # Twilio cannot sign a WebSocket upgrade, so the token minted into this
     # URL by the (signature-checked) voice webhook is what proves the
     # connection belongs to a real call. Without it, knowing a task id was
     # enough to join a stranger's live call and open a billable session.
     # Both refusals below close before accepting, which the client sees as a
-    # bare HTTP 403 with no reason attached - and the access log omits the
-    # query string, so a rejected call was indistinguishable from a bad token.
-    # Say which it was.
+    # bare HTTP 403 with no reason attached, so each one says which it was.
     if not verify_stream_token(taskId, token):
         logger.warning(
             "Media stream refused for %s: %s",
@@ -144,7 +152,15 @@ async def recording_webhook(
     if not recording_url:
         raise HTTPException(status_code=422, detail="missing_recording_url")
 
-    background.add_task(ingest_recording, session, recording_url)
+    # Twilio reports how long it actually recorded. A call nobody answered
+    # still produces a recording of a second or two, and transcribing that is
+    # how the agent came to "report" a conversation that never happened.
+    try:
+        duration = int(params.get("RecordingDuration") or 0)
+    except ValueError:
+        duration = 0
+
+    background.add_task(ingest_recording, session, recording_url, duration)
     return {"status": "accepted"}
 
 
@@ -218,8 +234,12 @@ async def status_webhook(
     events.publish(taskId, {"type": "call_status", "status": call_status})
 
     if call_status == "in-progress":
-        # Answered. This, not dialling, is when the timer should start.
+        # Answered. This is the only place answered_at is written, and it is
+        # what the screen keys the timer off - `status` is already CALLING from
+        # the moment dialling was accepted, so it cannot tell the two apart.
         session.status = NegotiationStatus.CALLING
+        if not session.answered_at:
+            session.answered_at = datetime.now(timezone.utc).isoformat()
         await save_session(session)
     elif call_status in _ENDED_STATUSES:
         # The call is over however it ended, so the screen must not stay live.

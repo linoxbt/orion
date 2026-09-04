@@ -183,6 +183,19 @@ def _stream_secret() -> str:
     return settings.admin_api_key or ""
 
 
+def stream_websocket_url(task_id: str) -> str:
+    """The Media Stream URL Twilio is given, as a single path.
+
+    No query string, deliberately. Two query parameters require an "&", the
+    TwiML serialiser escapes it to "&amp;", and Twilio hands that through
+    verbatim - so the token arrived under the name "amp;token", the stream was
+    refused, and since <Connect> is terminal the call dropped the instant it
+    was answered. Path segments have nothing to escape.
+    """
+    base = settings.base_url.replace("https://", "wss://", 1).replace("http://", "ws://", 1)
+    return f"{base}/telephony/stream/{task_id}/{mint_stream_token(task_id)}"
+
+
 def mint_stream_token(task_id: str, *, now: float | None = None) -> str:
     """A short-lived token binding a stream URL to one task id."""
     secret = _stream_secret()

@@ -63,6 +63,7 @@ export function OutboundCall({
   const [callState, setCallState] = useState<CallScreenState>("connecting");
   const [note, setNote] = useState<string | null>(null);
   const [agentSpeaking, setAgentSpeaking] = useState(false);
+  const [answeredAt, setAnsweredAt] = useState<string | null>(null);
   const [hangingUp, setHangingUp] = useState(false);
 
   /** End the call, not just the window.
@@ -131,13 +132,20 @@ export function OutboundCall({
       try {
         const current = await getNegotiation(session.task_id);
         if (cancelled) return;
-        if (current.status === "calling") {
-          // Answered, whatever the feed did or did not deliver.
-          setCallState((s) => (s === "active" ? s : "active"));
-        } else if (current.status !== "pending") {
+
+        // answered_at, never status. `status` is CALLING from the moment
+        // dialling is accepted as well as on answer, so reading it as
+        // "answered" started the timer while the phone was still ringing.
+        const ended = current.status === "completed" || current.status === "failed";
+        if (ended) {
           setCallState(current.status === "completed" ? "ended" : "error");
           onPlaced(current);
+        } else if (current.answered_at) {
+          setCallState((s) => (s === "active" ? s : "active"));
+          setAnsweredAt(current.answered_at);
         }
+        // Otherwise it is still dialling or ringing, and the live feed's
+        // call_status events say which.
       } catch {
         // A failed poll is not evidence the call ended; try again.
       }
@@ -189,6 +197,7 @@ export function OutboundCall({
       onPlaced(updated);
       setCallState("connecting");
       setNote(null);
+      setAnsweredAt(null);
       setScreenOpen(true);
     } catch (err) {
       const detail = err instanceof ApiError ? err.detail : "";
@@ -275,6 +284,7 @@ export function OutboundCall({
         contact={session.provider}
         subtitle={session.phone_number}
         state={callState}
+        answeredAt={answeredAt}
         agentSpeaking={agentSpeaking}
         detail={note}
         muted={false}

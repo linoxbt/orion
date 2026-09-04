@@ -125,6 +125,7 @@ export interface NegotiationSession {
   vertical: string;
   status: NegotiationStatus;
   call_sid: string | null;
+  answered_at: string | null;
   outcome: string | null;
   confirmation_number: string | null;
   previous_rate: number | null;
