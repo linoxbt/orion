@@ -121,9 +121,7 @@ export function BrowserCall({ taskId, contact }: { taskId: string; contact: stri
           Talk to Orion before it talks to them
         </h2>
         <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink-soft">
-          The same agent that would hold the phone call, listening to your microphone. Play the
-          representative and see how it handles the call - every offer it logs and every detail it
-          verifies is recorded against this negotiation, exactly as on a real call.
+          The same agent, on your microphone. Play the rep and hear it negotiate.
         </p>
       </div>
 

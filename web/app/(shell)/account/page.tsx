@@ -140,10 +140,8 @@ export default function AccountPage() {
         <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted">Account</p>
         <h1 className="mt-4 font-display text-[2.4375rem] leading-none text-ink">Your details</h1>
         <p className="mt-4 max-w-prose text-[14px] leading-relaxed text-ink-soft">
-          A provider won&rsquo;t discuss an account until the caller proves it&rsquo;s theirs. Fill
-          this in once and Orion uses it on every negotiation, instead of asking you again each
-          time.
-        </p>
+        Fill this in once. Orion uses it on every negotiation.
+      </p>
       </header>
 
       <div className="mt-10 flex items-center gap-5">
@@ -230,9 +228,7 @@ export default function AccountPage() {
             If a call needs you
           </p>
           <p className="mt-3 max-w-prose text-[13px] leading-relaxed text-ink-soft">
-            Sometimes a representative asks something Orion cannot answer for you. When that
-            happens it messages you while the call is still live, rather than leaving a note you
-            read tomorrow. Leave these blank and it will simply carry on without you.
+            Orion messages you mid-call when it needs you. Leave blank and it carries on alone.
           </p>
           <div className="mt-5 grid gap-5 sm:grid-cols-2">
             {ESCALATION.map((field) => (
@@ -287,11 +283,9 @@ export default function AccountPage() {
         </div>
 
         <p className="max-w-prose text-[12px] leading-relaxed text-muted">
-          Your name and address prefill a negotiation&rsquo;s verification details so a
-          representative can be answered on the call. Anything genuinely secret - an account PIN,
-          the last four of an SSN - is never stored here; it&rsquo;s entered per negotiation and
-          encrypted separately.
-        </p>
+        Name and address prefill verification. A PIN or SSN is never stored here, only per
+        negotiation and encrypted.
+      </p>
       </form>
     </div>
   );

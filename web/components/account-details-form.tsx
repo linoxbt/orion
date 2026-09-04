@@ -70,10 +70,8 @@ export function AccountDetailsForm({ taskId }: { taskId: string }) {
         What the representative will ask you to confirm
       </h2>
       <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink-soft">
-        A provider won&rsquo;t discuss the account until the caller proves it&rsquo;s theirs.
-        Give Orion the answers and it can get past that question on its own - without them the
-        call ends there.
-      </p>
+      The answers a rep will ask for. Without them the call ends at verification.
+    </p>
 
       {onFile !== null && onFile.length > 0 && (
         <p className="mt-5 rounded border border-line bg-surface-2 px-4 py-3 text-[13px] text-ink-soft">
@@ -110,10 +108,9 @@ export function AccountDetailsForm({ taskId }: { taskId: string }) {
           </button>
           {error && <p className="mt-3 text-[13px] text-fail">{error}</p>}
           <p className="mt-4 max-w-prose text-[12px] leading-relaxed text-muted">
-            Encrypted before they&rsquo;re stored, never returned by the API, and read one field at
-            a time only when a representative asks for it. Each disclosure is recorded on the
-            call&rsquo;s timeline.
-          </p>
+          Encrypted at rest, never read back, released one field at a time and logged on the
+          timeline.
+        </p>
         </div>
       </form>
     </section>

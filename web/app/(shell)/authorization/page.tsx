@@ -16,41 +16,34 @@ export default function AuthorizationPage() {
         Consent &amp; authorisation
       </h1>
       <p className="mt-4 max-w-prose text-[14px] leading-relaxed text-ink-soft">
-        A company won&rsquo;t discuss an account with anyone who isn&rsquo;t entitled to act on it.
-        Before Orion places a call, you authorise it once for that specific negotiation - on the
-        negotiation&rsquo;s own page, not here.
+        Authorise once per negotiation, on that negotiation&rsquo;s own page. Never blanket.
       </p>
 
       <ul className="mt-8 flex flex-col gap-4">
         <li className="rounded-lg border border-line bg-surface p-6">
           <p className="font-display text-[1.1875rem] text-ink">What you agree to</p>
           <p className="mt-2 text-[14px] leading-relaxed text-ink-soft">
-            That Orion may contact the company as your representative about that account or
-            purchase, discuss it on your behalf, and record the call for verification - and that
-            you are the account holder or otherwise entitled to authorise it.
+            Orion may contact this company as your representative, discuss this account, and
+            record the call. You confirm the account is yours to authorise.
           </p>
         </li>
         <li className="rounded-lg border border-line bg-surface p-6">
           <p className="font-display text-[1.1875rem] text-ink">What gets recorded</p>
           <p className="mt-2 text-[14px] leading-relaxed text-ink-soft">
-            The name you type, the exact version of the wording you agreed to, and the moment you
-            agreed. Stored against that negotiation, so what was authorised can be reconstructed
-            later rather than resting on &ldquo;a box was ticked&rdquo;.
+            Your name, the exact wording, the moment. A ticked box is not a record.
           </p>
         </li>
         <li className="rounded-lg border border-line bg-surface p-6">
           <p className="font-display text-[1.1875rem] text-ink">On the call itself</p>
           <p className="mt-2 text-[14px] leading-relaxed text-ink-soft">
-            Orion identifies itself as an AI representative in its opening line - it never claims
-            to be you - and gives a recording notice regardless of local two-party-consent rules.
-            If a representative asks for something it can&rsquo;t verify, it hands the call back to
-            you rather than guessing.
+            It says it is an AI in its opening line, and always gives a recording notice. Asked
+            something it cannot verify, it hands the call back.
           </p>
         </li>
       </ul>
 
       <p className="mt-8 text-[14px] leading-relaxed text-ink-soft">
-        Authorisation is per negotiation, never blanket.{" "}
+        {" "}
         <Link
           href="/dashboard"
           className="text-accent underline decoration-transparent underline-offset-4 transition hover:decoration-current"

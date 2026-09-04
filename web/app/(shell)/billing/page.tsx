@@ -28,7 +28,7 @@ export default function BillingPage() {
       <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted">Billing</p>
       <h1 className="mt-4 font-display text-[2.4375rem] leading-none text-ink">Success fees</h1>
       <p className="mt-4 max-w-prose text-[14px] leading-relaxed text-ink-soft">
-        A percentage of verified savings, charged via Stripe once a negotiation is marked verified - never charged before an outcome is confirmed.
+        A share of verified savings, via Stripe. Never charged before a saving is proven.
       </p>
 
       {error && (

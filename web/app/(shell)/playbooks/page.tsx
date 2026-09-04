@@ -73,14 +73,9 @@ export default function PlaybooksPage() {
       <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted">Playbooks</p>
       <h1 className="mt-4 font-display text-[2.4375rem] leading-none text-ink">Negotiation strategy by vertical</h1>
       <p className="mt-4 max-w-prose text-[14px] leading-relaxed text-ink-soft">
-        Generic, publicly-documented retention-call tactics seed every call&apos;s system
-        instruction as a baseline. Where a call&apos;s provider matches one of the named
-        companies below, the more specific playbook is used instead - real per-provider
-        discount data (exact offer tiers, current promotions) still needs the content-research
-        research pipeline; what&apos;s here is well-established
-        public knowledge about which department to ask for and what tends to work, not verified
-        proprietary numbers.
-      </p>
+      Public retention tactics as a baseline, with a provider-specific playbook where one
+      exists. Which desk to ask for and what tends to work, not proprietary offer tiers.
+    </p>
 
       {error && (
         <div className="mt-8 rounded border border-fail/40 bg-fail/10 px-6 py-6 text-center">

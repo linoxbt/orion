@@ -124,8 +124,7 @@ export default function NegotiatePage() {
             <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted">New negotiation</p>
             <h1 className="mt-4 font-display text-[2.4375rem] leading-[1.05] text-ink text-balance">Let Orion make the call.</h1>
             <p className="mt-4 text-[14px] leading-relaxed text-ink-soft">
-              Upload a bill, confirm the details, and sign the authorization on the next page - Orion
-              places the call only once you&apos;ve consented.
+              Upload a bill, confirm the details, authorise the call.
             </p>
           </header>
 
@@ -173,8 +172,7 @@ export default function NegotiatePage() {
                 className="mt-1 w-full rounded border border-line bg-paper px-3.5 py-2.5 text-[14px] text-ink transition-colors focus:border-accent"
               />
               <span className="mt-1 block text-xs text-muted">
-                Orion doesn&apos;t look phone numbers up automatically - enter the provider&apos;s retention/customer
-                service line yourself so a real call is never placed to an unverified number.
+                From your bill. Orion never dials a number it looked up itself.
               </span>
             </label>
 
@@ -192,8 +190,7 @@ export default function NegotiatePage() {
                 ))}
               </select>
               <span className="mt-1 block text-xs text-muted">
-                Picks the negotiation playbook - which department to ask for, and which arguments
-                work on that industry. Set from your bill when it can be read from it.
+                Picks the playbook: which desk to ask for, which arguments land. Set from your bill when it can be read from it.
               </span>
             </label>
 
@@ -211,8 +208,7 @@ export default function NegotiatePage() {
                 ))}
               </select>
               <span className="mt-1 block text-xs text-muted">
-                Orion transcribes all of these natively and will hold the whole call in the
-                language you pick.
+                Orion holds the whole call in this language.
               </span>
             </label>
 
@@ -293,8 +289,7 @@ function ExtractionSummary({ extraction }: { extraction: BillExtraction }) {
             ))}
           </ul>
           <p className="mt-3 text-[12px] leading-relaxed text-muted">
-            Fees and equipment rental are often waived even when the base rate won&rsquo;t move.
-            Orion will name these specifically on the call.
+            Often waived even when the base rate will not move.
           </p>
         </div>
       )}

@@ -17,32 +17,32 @@ const STEPS = [
   {
     n: "01",
     title: "Send us the bill",
-    body: "Photograph it or upload the PDF. The provider, your current rate and the plan details are read straight off it - nothing to type in.",
+    body: "Photo or PDF. Your rate and plan are read off it. Nothing to type.",
   },
   {
     n: "02",
     title: "Orion makes the call",
-    body: "It opens by identifying itself as an AI representative acting for you, asks for the retention team, and works through the objections a trained negotiator would. It does not take the first offer.",
+    body: "It asks for retention, argues your case, and refuses the first offer.",
   },
   {
     n: "03",
     title: "You approve the outcome",
-    body: "The call is recorded and transcribed, and the new rate and confirmation number are pulled from it. Nothing is charged until a saving is verified.",
+    body: "The new rate is read back off the recording. No saving, no fee.",
   },
 ];
 
 const VERTICALS = [
   {
     name: "Cable & internet",
-    body: "The most standardised retention scripts of any category, which makes them the most winnable.",
+    body: "The most scripted retention desks. The most winnable.",
   },
   {
     name: "Mobile & wireless",
-    body: "Mentioning a competitor routes the call to a team with real discount authority.",
+    body: "Naming a competitor reaches the desk with real discount authority.",
   },
   {
     name: "Medical billing",
-    body: "Hardship programmes and cash-pay rates can move a bill by far more than a monthly plan.",
+    body: "Hardship programmes move a bill far more than any monthly plan.",
   },
 ];
 
@@ -64,10 +64,8 @@ export default function HomePage() {
               for the same service.
             </h1>
             <p className="mt-8 max-w-prose text-[16px] leading-[1.65] text-ink-soft">
-              Orion calls your provider on your behalf and negotiates the rate down - cable,
-              mobile, or a medical bill - using the same retention levers a professional
-              negotiator would. You pay a share of what it actually saves you, and nothing
-              at all if it doesn&rsquo;t.
+              Orion calls your provider and negotiates the rate down. Cable, mobile, medical.
+              You pay a share of what it saves, and nothing if it saves nothing.
             </p>
             <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4">
               <Link
@@ -181,19 +179,9 @@ export default function HomePage() {
                 </h2>
               </div>
               <div className="max-w-prose space-y-6 text-[15px] leading-[1.7] text-ink-soft">
-                <p>
-                  Orion identifies itself as an AI representative at the start of every call. It
-                  never claims to be you, and never misrepresents your account.
-                </p>
-                <p>
-                  It only calls once you have signed a limited authorisation naming it as your
-                  representative for that specific bill, and every call opens with a recording
-                  notice.
-                </p>
-                <p>
-                  If a representative refuses outright or asks for something Orion cannot verify,
-                  it stops and hands the call to a person rather than pushing.
-                </p>
+                <p>It says it is an AI, on every call. It never claims to be you.</p>
+                <p>It calls only once you have authorised that specific bill.</p>
+                <p>Asked something it cannot verify, it hands the call back rather than guessing.</p>
               </div>
             </div>
           </FadeIn>

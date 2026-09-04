@@ -53,15 +53,13 @@ export default function LoginPage() {
             Your bills, negotiated while you get on with your day.
           </h1>
           <p className="mt-6 text-[15px] leading-[1.7] text-ink-soft">
-            Sign in to upload a bill, authorise Orion to act as your representative, and follow
-            the call as it happens.
-          </p>
+          Upload a bill, authorise the call, follow it live.
+        </p>
         </div>
 
         <p className="max-w-md text-[12px] leading-relaxed text-muted">
-          Orion only calls a provider once you have signed a limited authorisation for that
-          specific bill, and it identifies itself as an AI representative on every call.
-        </p>
+        Orion calls only once you authorise that specific bill, and says it is an AI.
+      </p>
       </section>
 
       {/* Right: the actual door. */}

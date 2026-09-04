@@ -126,9 +126,8 @@ export default function DashboardPage() {
                   : `${renewals.length} promotional rates are about to end`}
               </h2>
               <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink-soft">
-                A negotiated rate is temporary. When the promotional period lapses the price goes
-                back up quietly - calling before it does is when the second win happens.
-              </p>
+              Negotiated rates lapse quietly. Calling before they do is the second win.
+            </p>
               <ul className="mt-5 divide-y divide-line border-t border-line">
                 {renewals.map((r) => (
                   <li key={r.task_id} className="flex items-center justify-between gap-4 py-3">
@@ -157,7 +156,7 @@ export default function DashboardPage() {
             <div className="mt-10 rounded-lg border border-line bg-surface px-8 py-16 text-center">
               <p className="font-display text-[1.6875rem] text-ink">Nothing here yet</p>
               <p className="mx-auto mt-4 max-w-sm text-[14px] leading-relaxed text-ink-soft">
-                Upload a bill and Orion will call the provider for you. It only charges if it wins.
+                Upload a bill. Orion calls, and only charges if it wins.
               </p>
               <Link
                 href="/negotiate"
