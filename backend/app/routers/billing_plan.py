@@ -36,7 +36,7 @@ class PlanState(BaseModel):
     used: int
     remaining: int | None
     month: str
-    price_usd: int
+    price_usd: float
     expires_at: str | None
     can_upgrade: bool
     # So a renewal is never a surprise, and cancelling is possible from the app.

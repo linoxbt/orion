@@ -30,8 +30,12 @@ class Settings(BaseSettings):
     paystack_plan_code: str = ""
     # What the upgrade costs, in whole units of paystack_currency. NGN is the
     # default because a Nigerian Paystack account settles in naira; set both
-    # together when charging in another currency.
-    pro_price: int = 22500
+    # together when charging in another currency. 750 naira is about $0.50.
+    #
+    # Paystack refuses very small amounts outright - a 1 naira charge comes
+    # back as "No active channel to process transaction" - so this is also the
+    # practical floor, not only a pricing choice.
+    pro_price: int = 750
     base_url: str = "http://localhost:8080"
 
     # CORS: comma-separated list of origins allowed to call this API from a

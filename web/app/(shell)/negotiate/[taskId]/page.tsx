@@ -7,6 +7,7 @@ import { AccountDetailsForm } from "@/components/account-details-form";
 import { BrowserCall } from "@/components/browser-call";
 import { ConsentForm } from "@/components/consent-form";
 import { OutboundCall } from "@/components/outbound-call";
+import { CallRecordingPlayer } from "@/components/call-recording";
 import {
   ApiError,
   chargeNegotiation,
@@ -163,6 +164,21 @@ export default function NegotiationStatusPage({ params }: { params: Promise<{ ta
           )}
 
           {session && <OutboundCall session={session} onPlaced={setSession} />}
+
+          {/* Once a call has happened, the customer can hear exactly what was
+              said on their behalf - which is the whole basis for trusting the
+              outcome. */}
+          {session && session.status !== "pending" && !session.is_sample && (
+            <section className="mt-6 rounded-lg border border-line bg-surface p-7">
+              <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted">
+                Listen back
+              </p>
+              <h2 className="mt-3 font-display text-[1.5375rem] leading-snug text-ink">
+                Hear the call
+              </h2>
+              <CallRecordingPlayer taskId={taskId} />
+            </section>
+          )}
 
           {session && !session.verified && (
             <form onSubmit={handleComplete} className="mt-6 rounded border border-line bg-surface p-6">

@@ -144,6 +144,7 @@ export interface NegotiationSession {
   escalated: boolean;
   escalation_reason: string | null;
   recording_url: string | null;
+  recording_path: string | null;
   transcript_id: string | null;
   verification_source: string | null;
 }
@@ -405,6 +406,22 @@ export async function recordConsent(
     body: JSON.stringify(body),
   });
   return handle<NegotiationSession>(res);
+}
+
+export interface CallRecording {
+  available: boolean;
+  url: string | null;
+  expires_in: number | null;
+  reason: string | null;
+}
+
+/** Where to play a finished call back from.
+ *
+ * The link is signed and short-lived, so it is fetched when the player is
+ * opened rather than stored with the negotiation. */
+export async function getRecording(taskId: string): Promise<CallRecording> {
+  const res = await fetch(`/api/negotiations/${taskId}/recording`, { headers: authHeaders() });
+  return handle<CallRecording>(res);
 }
 
 /** End a call that is still running.

@@ -243,6 +243,10 @@ class NegotiationSession(BaseModel):
     # recording, its AssemblyAI transcript, and whether the outcome above was
     # extracted automatically or typed in by a human.
     recording_url: str | None = None
+    # Our own copy of the recording, in private storage keyed by owner and
+    # negotiation. The Twilio URL above needs account credentials the browser
+    # must never hold, and Twilio drops recordings when an account lapses.
+    recording_path: str | None = None
     transcript_id: str | None = None
     verification_source: str | None = None
 

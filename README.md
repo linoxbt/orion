@@ -52,7 +52,7 @@ that does.
 | **Verify the outcome** | The recording is transcribed afterwards and the result read back out of it. A saving the transcript does not support is never recorded and never billed. |
 | **Follow up** | A verified saving produces a shareable receipt. The contract end date drives a renewal reminder about six weeks before the promotional rate lapses. |
 
-**Plans.** Five bills a month free, resetting on the 1st; $15 a month for
+**Plans.** Five bills a month free, resetting on the 1st; 50 cents a month for
 unlimited. A bill is the unit - extraction, the negotiation and its calls all
 come out of one allowance. Payment runs on Paystack, and a paid plan is granted
 only by Paystack's signed webhook or by the server verifying a reference
@@ -149,7 +149,7 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 | `GEMINI_MODELS` | no | Ordered fallback chain for extraction. A single pinned model is a liability: Gemini returns "high demand" for minutes at a time and retrying the same one is futile. |
 | `VOICE_BACKEND` | no | `agent_api` (default) or `stt_gemini`. |
 | `STRIPE_SECRET_KEY` | no | Per-negotiation success fee. Unavailable to Nigerian merchants, and the charge button is hidden without it. |
-| `PAYSTACK_SECRET_KEY` | for paid plans | The $15/month subscription. Stripe cannot be used by a Nigerian business; Paystack is Stripe-owned and covers the region. |
+| `PAYSTACK_SECRET_KEY` | for paid plans | The $0.50/month subscription. Stripe cannot be used by a Nigerian business; Paystack is Stripe-owned and covers the region. |
 | `TWILIO_WHATSAPP_FROM` / `SENDGRID_API_KEY` / `ESCALATION_*` | no | How you are reached when the agent hits a wall mid-call. An unconfigured channel is skipped, never raised, because a failed notification must not take down a live call. |
 
 ### Frontend

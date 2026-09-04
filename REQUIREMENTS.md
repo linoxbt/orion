@@ -253,7 +253,7 @@ negotiation it produces, and every call on it come out of one allowance.
 | Plan | Bills per month | Price |
 | --- | --- | --- |
 | Free | 5, resetting on the 1st | nothing |
-| Unlimited | no limit | $15 a month |
+| Unlimited | no limit | $0.50 a month |
 
 ### Why Paystack and not Stripe
 
@@ -333,7 +333,7 @@ the charge button is hidden rather than offered and failing.
 | `ESCALATION_EMAIL_FROM` | optional | Verified SendGrid sender |
 | `PUBLIC_APP_URL` | optional | Links inside escalation messages |
 | `STRIPE_SECRET_KEY` | optional | Per-negotiation success fee. Unavailable to Nigerian merchants |
-| `PAYSTACK_SECRET_KEY` | for paid plans | The $15/month subscription |
+| `PAYSTACK_SECRET_KEY` | for paid plans | The $0.50/month subscription |
 | `PAYSTACK_CURRENCY` | has a default | `NGN` |
 | `PRO_PRICE` | has a default | Whole units of the currency above |
 | `PAYSTACK_CHANNELS` | has a default | Checkout methods, in order |

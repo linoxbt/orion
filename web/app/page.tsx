@@ -122,7 +122,7 @@ export default function HomePage() {
               </h1>
               <p className="mt-7 max-w-lg text-[16px] leading-[1.6] text-[var(--l-muted)] sm:text-[17px]">
                 Orion calls your provider and negotiates the rate down. Cable, mobile, medical.
-                Five bills a month free. $15 a month for as many as you like.
+                Five bills a month free. 50 cents a month for as many as you like.
               </p>
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">

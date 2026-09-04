@@ -156,7 +156,7 @@ export function PlanPanel() {
             className="mt-6 inline-flex items-center gap-2 rounded bg-accent px-5 py-2.5 text-[14px] font-medium text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-40"
           >
             {busy && <Loader2 size={15} className="animate-spin" />}
-            Upgrade for ${plan.price_usd} a month
+            Upgrade for ${plan.price_usd.toFixed(2)} a month
           </button>
 
           {!plan.can_upgrade && (

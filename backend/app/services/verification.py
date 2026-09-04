@@ -25,6 +25,7 @@ import httpx
 from app.config import settings
 from app.models import NegotiationSession, NegotiationStatus
 from app.services import events
+from app.services import recordings
 from app.services.assemblyai import REST_BASE, llm_gateway_json, rest_headers
 from app.store import save_session
 
@@ -92,6 +93,20 @@ async def ingest_recording(session: NegotiationSession, recording_url: str) -> s
         # Twilio serves the raw media from the recording URL with a format suffix.
         audio = await client.get(f"{recording_url}.wav", auth=auth)
         audio.raise_for_status()
+
+        # Keep our own copy before anything else touches it. Twilio holds the
+        # original behind account credentials the browser must never see, and
+        # deletes it when an account lapses - so the customer's ability to hear
+        # their own call should not depend on our telephony account still
+        # existing. Failing to store must not stop the verification that
+        # follows, which is the part a saving depends on.
+        try:
+            stored = await recordings.store(session.user_id, session.task_id, audio.content)
+            if stored:
+                session.recording_path = stored
+                await save_session(session)
+        except Exception as exc:  # noqa: BLE001 - never block verification
+            logger.warning("Could not archive the recording for %s: %s", session.task_id, exc)
 
         # /v2/upload takes raw binary - NOT multipart.
         upload = await client.post(

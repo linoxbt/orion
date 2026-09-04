@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from app.models import BillExtraction, NegotiationSession, NegotiationStatus
 from app.playbooks import get_playbook
 from app.security import require_owned_session, require_user_id
-from app.services import account_vault, events, supabase_store
+from app.services import account_vault, events, recordings, supabase_store
 from app.services.ratelimit import limit
 from app.services.billing import StripeNotConfigured, charge_success_fee
 from app.services.twilio_client import (
@@ -242,6 +242,45 @@ async def hangup_negotiation(
         session.task_id, {"type": "status", "status": "call_ended", "reason": "hung_up"}
     )
     return session
+
+
+class Recording(BaseModel):
+    """Where to play the call back from, and for how long that link lasts."""
+
+    available: bool
+    url: str | None = None
+    expires_in: int | None = None
+    reason: str | None = None
+
+
+@router.get("/{task_id}/recording", response_model=Recording)
+async def get_recording(
+    session: NegotiationSession = Depends(require_owned_session),
+) -> Recording:
+    """A link the customer can play their own call back from.
+
+    Signed and short-lived rather than public: this is a recorded phone call
+    about somebody's account, so a copied link should stop working rather than
+    remain a permanent handle on it. Ownership is checked before the link is
+    minted at all, so knowing a task id is not enough.
+    """
+    if not session.recording_path:
+        # Distinguish "not recorded yet" from "there is nothing to hear", so
+        # the page can say which.
+        reason = (
+            "no_call_yet"
+            if session.status == NegotiationStatus.PENDING
+            else "awaiting_recording"
+        )
+        return Recording(available=False, reason=reason)
+
+    url = await recordings.playback_url(session.recording_path)
+    if not url:
+        return Recording(available=False, reason="unavailable")
+
+    return Recording(
+        available=True, url=url, expires_in=recordings.SIGNED_URL_TTL_SECONDS
+    )
 
 
 @router.get("/{task_id}/events")

@@ -21,7 +21,7 @@ from app.services import supabase_store
 logger = logging.getLogger(__name__)
 
 FREE_MONTHLY_BILLS = 5
-PRO_PRICE_USD = 15
+PRO_PRICE_USD = 0.5
 
 
 def current_month() -> str:
@@ -91,7 +91,7 @@ async def consume_bill(user_id: str) -> bool:
             status_code=402,
             detail=(
                 f"free_limit_reached: {FREE_MONTHLY_BILLS} bills a month on the free "
-                f"plan. Upgrade for unlimited bills at ${PRO_PRICE_USD} a month."
+                f"plan. Upgrade for unlimited bills at ${PRO_PRICE_USD:.2f} a month."
             ),
         )
     return True
