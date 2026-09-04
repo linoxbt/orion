@@ -17,12 +17,13 @@ import {
 import { Wordmark } from "./wordmark";
 import { LogoMark } from "./logo-mark";
 import { useSidebar } from "./sidebar-context";
+import { docsHref, siteHref } from "@/lib/site-urls";
 import { UserChip } from "./auth/user-chip";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/negotiate", label: "New negotiation", icon: PhoneCall },
-  { href: "/docs", label: "How it works", icon: BookOpen },
+  { href: docsHref("/"), label: "How it works", icon: BookOpen },
   { href: "/billing", label: "Billing", icon: CreditCard },
   { href: "/account", label: "Account", icon: UserRound },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -68,7 +69,7 @@ export function AppSidebar() {
         }`}
       >
         <div className={`mb-8 flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-2`}>
-          <Link href="/">{isCollapsed ? <LogoMark className="h-6 w-6 text-accent" /> : <Wordmark className="text-base" />}</Link>
+          <Link href={siteHref("/")}>{isCollapsed ? <LogoMark className="h-6 w-6 text-accent" /> : <Wordmark className="text-base" />}</Link>
         </div>
 
         {!isCollapsed && (
@@ -90,7 +91,7 @@ export function AppSidebar() {
           </button>
           {!isCollapsed && (
             <div className="flex flex-col gap-1">
-              <Link href="/" className="text-[12px] text-muted transition-colors hover:text-ink">
+              <Link href={siteHref("/")} className="text-[12px] text-muted transition-colors hover:text-ink">
                 ← Back to site
               </Link>
             </div>
@@ -153,7 +154,7 @@ function MobileDrawer() {
         }`}
       >
         <div className="mb-8 flex items-center justify-between px-2">
-          <Link href="/">
+          <Link href={siteHref("/")}>
             <Wordmark className="text-base" />
           </Link>
           <button type="button" onClick={closeMobile} aria-label="Close menu" className="text-ink/75">
@@ -164,7 +165,7 @@ function MobileDrawer() {
         <NavLinks collapsed={false} onNavigate={closeMobile} ariaLabel="Mobile primary" />
         <div className="mt-auto flex flex-col gap-3 pt-8">
           <div className="flex flex-col gap-1">
-            <Link href="/" className="font-mono text-xs text-muted hover:text-ink">
+            <Link href={siteHref("/")} className="font-mono text-xs text-muted hover:text-ink">
               ← Back to site
             </Link>
           </div>

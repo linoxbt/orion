@@ -6,13 +6,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoMark } from "@/components/logo-mark";
 import { HeaderAuth } from "@/components/auth/header-auth";
+import { appHref, docsHref } from "@/lib/site-urls";
 
 const LINKS: [string, string][] = [
-  ["How it works", "/docs"],
+  ["How it works", docsHref("/")],
   ["What it negotiates", "/#verticals"],
-  ["Playbooks", "/docs#playbooks"],
-  ["Dashboard", "/dashboard"],
-  ["Billing", "/billing"],
+  ["Playbooks", docsHref("/playbooks")],
+  ["Dashboard", appHref("/dashboard")],
+  ["Billing", appHref("/billing")],
 ];
 
 /**
@@ -127,7 +128,7 @@ export function LandingNav() {
             <HeaderAuth />
           </div>
           <Link
-            href="/negotiate"
+            href={appHref("/negotiate")}
             className="hidden rounded-full bg-[var(--l-accent)] px-5 py-2.5 text-[13px] font-medium text-[#131416] transition-colors hover:bg-[var(--l-accent-hover)] sm:inline-flex"
           >
             Start

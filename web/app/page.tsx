@@ -8,6 +8,7 @@ import { Reveal } from "@/components/landing/reveal";
 import { ScrollSequence } from "@/components/landing/scroll-sequence";
 import { ImageReveal } from "@/components/landing/image-reveal";
 import { REVEAL_IMAGES } from "@/lib/landing-images";
+import { appHref, docsHref } from "@/lib/site-urls";
 
 /** The landing page, in the visual language of stacks.co.
  *
@@ -123,7 +124,7 @@ export default function HomePage() {
       {/* Announcement bar. A real capability, not a slogan. */}
       <div className="border-b border-[var(--l-line)] bg-[var(--l-surface)]">
         <Link
-          href="/negotiate"
+          href={appHref("/negotiate")}
           className="mx-auto flex max-w-7xl items-center justify-center gap-2 px-5 py-2.5 text-center text-[12px] text-[var(--l-muted)] transition-colors hover:text-[var(--l-text)]"
         >
           <span className="h-1.5 w-1.5 flex-none rounded-full bg-[var(--l-accent)]" />
@@ -153,13 +154,13 @@ export default function HomePage() {
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Link
-                  href="/negotiate"
+                  href={appHref("/negotiate")}
                   className="inline-flex items-center justify-center rounded-full bg-[var(--l-accent)] px-7 py-3.5 text-[14px] font-medium text-[#131416] transition-colors hover:bg-[var(--l-accent-hover)]"
                 >
                   Start a negotiation
                 </Link>
                 <Link
-                  href="/docs"
+                  href={docsHref("/")}
                   className="inline-flex items-center justify-center rounded-full border border-[var(--l-line-strong)] px-7 py-3.5 text-[14px] font-medium text-[var(--l-text)] transition-colors hover:border-[var(--l-text)]"
                 >
                   How it works
@@ -381,7 +382,7 @@ export default function HomePage() {
               <span className="text-[var(--l-accent)]">Push it back down.</span>
             </h2>
             <Link
-              href="/negotiate"
+              href={appHref("/negotiate")}
               className="mt-11 inline-flex items-center justify-center rounded-full bg-[var(--l-accent)] px-8 py-4 text-[15px] font-medium text-[#131416] transition-colors hover:bg-[var(--l-accent-hover)]"
             >
               Start a negotiation
@@ -405,9 +406,9 @@ export default function HomePage() {
           </div>
 
           {[
-            { head: "Product", links: [["Start a negotiation", "/negotiate"], ["Dashboard", "/dashboard"], ["Playbooks", "/playbooks"], ["Billing", "/billing"]] },
-            { head: "Learn", links: [["How it works", "/docs"], ["Authorisation", "/authorization"], ["Account", "/account"]] },
-            { head: "Account", links: [["Sign in", "/login"], ["Settings", "/settings"]] },
+            { head: "Product", links: [["Start a negotiation", appHref("/negotiate")], ["Dashboard", appHref("/dashboard")], ["Billing", appHref("/billing")]] },
+            { head: "Learn", links: [["How it works", docsHref("/")], ["The playbooks", docsHref("/playbooks")], ["Authorisation", docsHref("/authorisation")]] },
+            { head: "Account", links: [["Sign in", appHref("/login")], ["Your account", appHref("/account")], ["Settings", appHref("/settings")]] },
           ].map((col) => (
             <div key={col.head}>
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--l-muted)]">

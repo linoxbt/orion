@@ -17,8 +17,8 @@ const nextConfig = {
    */
   async redirects() {
     return [
-      { source: "/authorization", destination: "/docs#authorisation", permanent: true },
-      { source: "/playbooks", destination: "/docs#playbooks", permanent: true },
+      { source: "/authorization", destination: "/docs/authorisation", permanent: true },
+      { source: "/playbooks", destination: "/docs/playbooks", permanent: true },
     ];
   },
 };

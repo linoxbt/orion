@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { DynamicWidget, useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 import { Wordmark } from "@/components/wordmark";
 import { HeroWatermark } from "@/components/landing/hero-watermark";
+import { siteHref } from "@/lib/site-urls";
 
 const CONFIGURED = Boolean(process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID);
 
@@ -46,7 +47,7 @@ export default function LoginPage() {
       {/* Left: the reason to sign in at all. */}
       <section className="landing relative isolate hidden flex-col justify-between overflow-hidden border-r border-[var(--l-line)] px-12 py-12 lg:flex xl:px-16">
         <HeroWatermark />
-        <Link href="/" className="relative z-10 transition-opacity hover:opacity-70">
+        <Link href={siteHref("/")} className="relative z-10 transition-opacity hover:opacity-70">
           <Wordmark className="text-[1.2875rem]" />
         </Link>
 
@@ -67,7 +68,7 @@ export default function LoginPage() {
       {/* Right: the actual door. */}
       <section className="flex flex-col justify-center px-6 py-16 sm:px-12 lg:px-16">
         <div className="mx-auto w-full max-w-sm">
-          <Link href="/" className="mb-10 inline-block lg:hidden">
+          <Link href={siteHref("/")} className="mb-10 inline-block lg:hidden">
             <Wordmark className="text-[1.2875rem]" />
           </Link>
 
