@@ -32,7 +32,7 @@ const mono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Orion - Stop overpaying for the same service",
   description:
-    "Orion calls your provider and negotiates your bill down, using the same retention levers a professional negotiator would. You only pay a share of what it actually saves you.",
+    "Orion calls your provider and negotiates the rate down. Cable, mobile, medical. You pay a share of what it saves, and nothing if it saves nothing.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
