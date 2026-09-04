@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routers import (
+    dashboard,
     billing_plan,
     browser_agent,
     bills,
@@ -53,3 +54,4 @@ app.include_router(browser_agent.router)
 app.include_router(receipts.router)
 app.include_router(profile.router)
 app.include_router(billing_plan.router)
+app.include_router(dashboard.router)
