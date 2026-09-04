@@ -147,3 +147,61 @@ class TestWebhookSignature:
 
         monkeypatch.setattr(settings, "paystack_secret_key", "sk_test_123")
         assert paystack.signature_is_valid(b"{}", None) is False
+
+
+class TestCallbackUrl:
+    """Paystack appends "?trxref=..&reference=.." to the callback verbatim, so
+    the callback must not carry a query string of its own. With one, the two
+    query strings run together and the first parameter swallows trxref."""
+
+    def test_the_callback_sent_to_paystack_has_no_query_string(self, monkeypatch):
+        import asyncio
+        from urllib.parse import urlparse
+
+        from app.config import settings
+        from app.services import paystack as ps
+
+        monkeypatch.setattr(settings, "public_app_url", "https://example.com")
+        monkeypatch.setattr(settings, "paystack_secret_key", "sk_test_1")
+        sent = {}
+
+        class FakeResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {"data": {"authorization_url": "https://pay", "reference": "T1"}}
+
+        class FakeClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            async def post(self, url, headers=None, json=None):
+                sent.update(json or {})
+                return FakeResponse()
+
+        monkeypatch.setattr(ps.httpx, "AsyncClient", lambda **kw: FakeClient())
+        asyncio.run(ps.start_upgrade("user-1", "a@b.com", 22500, "NGN"))
+
+        callback = sent["callback_url"]
+        assert urlparse(callback).query == "", f"callback carries a query: {callback}"
+
+    def test_appending_paystacks_parameters_then_parses_cleanly(self):
+        from urllib.parse import parse_qs, urlparse
+
+        returned = "https://example.com/billing?trxref=T1&reference=T1"
+        params = parse_qs(urlparse(returned).query)
+        assert params["reference"] == ["T1"]
+        assert params["trxref"] == ["T1"]
+
+    def test_a_callback_with_its_own_query_would_swallow_trxref(self):
+        """Why the rule exists, pinned so nobody re-adds a parameter."""
+        from urllib.parse import parse_qs, urlparse
+
+        bad = "https://example.com/billing?upgraded=1?trxref=T1&reference=T1"
+        params = parse_qs(urlparse(bad).query)
+        assert "trxref" not in params
+        assert params["upgraded"] == ["1?trxref=T1"]

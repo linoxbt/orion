@@ -56,7 +56,14 @@ async def start_upgrade(user_id: str, email: str, amount: int, currency: str) ->
         # Echoed back on the webhook, so the payment can be matched to an
         # account without trusting anything the browser says.
         "metadata": {"user_id": user_id},
-        "callback_url": f"{settings.public_app_url}/billing?upgraded=1",
+        # No query string of our own. Paystack appends "?trxref=..&reference=.."
+        # verbatim, so a URL that already carries a "?" ends up with two, and
+        # the first existing parameter swallows trxref:
+        #   /billing?upgraded=1?trxref=T1&reference=T1
+        #   -> upgraded="1?trxref=T1"
+        # reference still parses, so this happened to work, but only because
+        # the page reads reference before trxref.
+        "callback_url": f"{settings.public_app_url}/billing",
     }
     async with httpx.AsyncClient(timeout=20.0) as client:
         res = await client.post(f"{API}/transaction/initialize", headers=_headers(), json=payload)
