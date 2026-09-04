@@ -112,7 +112,7 @@ class TestCallCreation:
         from app.models import NegotiationSession
         from app.services import twilio_client
 
-        monkeypatch.setattr(settings, "twilio_phone_number", "+14647682206")
+        monkeypatch.setattr(settings, "twilio_phone_number", "+15550000000")
         captured = {}
 
         class FakeCalls:

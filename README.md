@@ -272,3 +272,10 @@ first in the channel list and appears automatically once Paystack enables it.
 
 Persistence currently falls back to SQLite on a mounted volume, because
 `SUPABASE_SERVICE_KEY` is not set on the backend.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
+Built for the [AssemblyAI Voice Agent Hackathon](https://lablab.ai/ai-hackathons/assemblyai-voice-agent-hackathon),
+September 2026.

@@ -22,13 +22,13 @@ def _rest_error(code: int, msg: str) -> TwilioRestException:
 
 class TestHints:
     def test_geo_permissions_is_explained(self):
-        exc = _rest_error(21215, "Account not authorized to call +2349061854649.")
+        exc = _rest_error(21215, "Account not authorized to call +2347000000000.")
         hint = _hint_for(exc)
         assert hint and "geo permissions" in hint.lower()
 
     def test_geo_permissions_is_caught_even_under_an_unlisted_code(self):
         """Twilio's own wording is the reliable signal; the code varies."""
-        exc = _rest_error(99999, "Account not authorized to call +2349061854649.")
+        exc = _rest_error(99999, "Account not authorized to call +2347000000000.")
         hint = _hint_for(exc)
         assert hint and "geo permissions" in hint.lower()
 
@@ -45,12 +45,12 @@ class TestEndpoint:
     def authorised(self, client, monkeypatch) -> str:
         monkeypatch.setattr(settings, "twilio_account_sid", "AC" + "0" * 32)
         monkeypatch.setattr(settings, "twilio_auth_token", "token")
-        monkeypatch.setattr(settings, "twilio_phone_number", "+14647682206")
+        monkeypatch.setattr(settings, "twilio_phone_number", "+15550000000")
 
         task_id = client.post(
             "/api/negotiations/start",
             headers=HEADERS,
-            json={"provider": "Comcast", "phone_number": "+2349061854649",
+            json={"provider": "Comcast", "phone_number": "+2347000000000",
                   "vertical": "cable_internet"},
         ).json()["task_id"]
         client.post(
@@ -65,7 +65,7 @@ class TestEndpoint:
     ):
         def boom(session):
             raise CallRejected(
-                "Account not authorized to call +2349061854649.",
+                "Account not authorized to call +2347000000000.",
                 "Enable it under Voice > Settings > Geo permissions.",
             )
 
@@ -83,7 +83,7 @@ class TestEndpoint:
     ):
         """So the dashboard does not just show a silent 'failed'."""
         def boom(session):
-            raise CallRejected("Account not authorized to call +2349061854649.")
+            raise CallRejected("Account not authorized to call +2347000000000.")
 
         monkeypatch.setattr("app.routers.negotiations.place_outbound_call", boom)
         client.post(f"/api/negotiations/{authorised}/call", headers=HEADERS)
@@ -95,7 +95,7 @@ class TestEndpoint:
     def test_a_rest_exception_never_escapes_as_a_500(self, client, authorised, monkeypatch):
         """The actual regression: an unhandled TwilioRestException."""
         def boom(*a, **kw):
-            raise _rest_error(21215, "Account not authorized to call +2349061854649.")
+            raise _rest_error(21215, "Account not authorized to call +2347000000000.")
 
         monkeypatch.setattr(twilio_client, "get_client", lambda: type(
             "C", (), {"calls": type("X", (), {"create": staticmethod(boom)})()}

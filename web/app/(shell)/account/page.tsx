@@ -49,7 +49,7 @@ const ESCALATION: Field[] = [
     key: "escalation_whatsapp",
     label: "WhatsApp number",
     type: "tel",
-    hint: "Include the country code, e.g. +2349061854649",
+    hint: "Include the country code, e.g. +2347000000000",
   },
   {
     key: "escalation_email",

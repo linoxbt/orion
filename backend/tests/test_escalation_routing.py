@@ -44,12 +44,12 @@ class TestRecipients:
             monkeypatch,
             UserProfile(
                 id="user-1",
-                escalation_whatsapp="+2349061854649",
+                escalation_whatsapp="+2347000000000",
                 escalation_email="owner@example.com",
             ),
         )
         whatsapp, email = asyncio.run(notify._recipients(_session("user-1")))
-        assert whatsapp == "+2349061854649"
+        assert whatsapp == "+2347000000000"
         assert email == "owner@example.com"
 
     def test_two_users_are_reached_separately(self, monkeypatch):
@@ -105,7 +105,7 @@ class TestDelivery:
         assert asyncio.run(notify.escalate(_session("user-1"), "needs a PIN")) == []
 
     def test_whatsapp_is_addressed_to_the_owner(self, monkeypatch):
-        _with_profile(monkeypatch, UserProfile(id="user-1", escalation_whatsapp="+2349061854649"))
+        _with_profile(monkeypatch, UserProfile(id="user-1", escalation_whatsapp="+2347000000000"))
         monkeypatch.setattr(settings, "twilio_account_sid", "AC123")
         monkeypatch.setattr(settings, "twilio_auth_token", "token")
         monkeypatch.setattr(settings, "twilio_whatsapp_from", "+15550000000")
@@ -131,4 +131,4 @@ class TestDelivery:
 
         delivered = asyncio.run(notify.escalate(_session("user-1"), "needs a PIN"))
         assert delivered == ["WhatsApp"]
-        assert sent["To"] == "whatsapp:+2349061854649"
+        assert sent["To"] == "whatsapp:+2347000000000"
