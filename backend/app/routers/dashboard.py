@@ -26,7 +26,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["dashboard"])
 
 COOKIE = "orion_admin"
-COOKIE_MAX_AGE = 8 * 3600
+# Long-lived on purpose: this is an operator's own machine, and being asked
+# to paste a key every working day trains the habit of keeping it somewhere
+# convenient and unsafe. Not unbounded, though - a session that never expires
+# is one a stolen laptop keeps forever. Signing out revokes it immediately.
+COOKIE_MAX_AGE = 30 * 24 * 3600
 
 
 def _authorised(request: Request) -> bool:

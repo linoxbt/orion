@@ -10,78 +10,41 @@
  * treatment; dark is a faithful inversion, not a different design. */
 
 :root {
-  --paper: #faf8f4;
-  --surface: #ffffff;
-  --surface-2: #f3f0ea;
-  --ink: #1a1815;
-  --ink-soft: #423e38;
-  --muted: #7a736a;
-  --line: #e6e1d8;
-  --line-strong: #d6cfc2;
+  --paper: #131416;
+  --surface: #1a1b1e;
+  --surface-2: #212226;
+  --ink: #f4f3f0;
+  --ink-soft: #c8c6c2;
+  --muted: #818688;
+  --line: #27282b;
+  --line-strong: #3a3b3f;
 
-  --accent: #1f5c46;
-  --accent-hover: #174838;
-  --accent-soft: #e7efe9;
-  --accent-ink: #ffffff;
-
-  --pass: #2f6b4a;
-  --partial: #8a6a1f;
-  --fail: #a8402f;
-
-  --shadow-sm: 0 1px 2px rgba(26, 24, 21, 0.04);
-  --shadow-md: 0 4px 16px -4px rgba(26, 24, 21, 0.08), 0 1px 3px rgba(26, 24, 21, 0.04);
-  --shadow-lg: 0 24px 48px -24px rgba(26, 24, 21, 0.18), 0 2px 8px rgba(26, 24, 21, 0.04);
-}
-
-:root[data-theme="dark"] {
-  --paper: #121110;
-  --surface: #1a1917;
-  --surface-2: #23211e;
-  --ink: #f4f1ea;
-  --ink-soft: #cec9c0;
-  --muted: #918a80;
-  --line: #2c2a26;
-  --line-strong: #3d3a34;
-
-  --accent: #6fb894;
-  --accent-hover: #8ccbab;
-  --accent-soft: #1c2b25;
-  --accent-ink: #10201a;
+  --accent: #fc6432;
+  --accent-hover: #ff7a4e;
+  --accent-soft: #2a1810;
+  --accent-ink: #131416;
 
   --pass: #6fb894;
   --partial: #d0ac54;
   --fail: #e08877;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 16px -4px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 24px 48px -24px rgba(0, 0, 0, 0.7);
+  --shadow-md: 0 4px 16px -4px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 24px 48px -24px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --paper: #121110;
-    --surface: #1a1917;
-    --surface-2: #23211e;
-    --ink: #f4f1ea;
-    --ink-soft: #cec9c0;
-    --muted: #918a80;
-    --line: #2c2a26;
-    --line-strong: #3d3a34;
+/* One identity, not a themed surface.
+ *
+ * The interior used to be a light editorial palette while the landing was
+ * dark - the same product wearing two faces, and a jarring step every time
+ * somebody signed in. The tokens above are now the landing's own, so the
+ * whole product is one committed look rather than something that reshuffles
+ * itself per viewer.
+ *
+ * No prefers-color-scheme or [data-theme] overrides on purpose: there is
+ * nothing to switch between. Every colour is still stated explicitly, so the
+ * page holds on any host ground rather than borrowing one. */
 
-    --accent: #6fb894;
-    --accent-hover: #8ccbab;
-    --accent-soft: #1c2b25;
-    --accent-ink: #10201a;
-
-    --pass: #6fb894;
-    --partial: #d0ac54;
-    --fail: #e08877;
-
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 4px 16px -4px rgba(0, 0, 0, 0.5);
-    --shadow-lg: 0 24px 48px -24px rgba(0, 0, 0, 0.7);
-  }
-}
 
 html,
 body {
@@ -157,15 +120,18 @@ select:focus-visible,
    is one deliberate look, not a themed surface.
 --------------------------------------------------------------------------- */
 .landing {
-  --l-bg: #131416;
-  --l-surface: #1a1b1e;
-  --l-surface-2: #27282b;
-  --l-text: #f4f3f0;
-  --l-muted: #818688;
-  --l-line: #27282b;
-  --l-line-strong: #3a3b3f;
-  --l-accent: #fc6432;
-  --l-accent-hover: #ff7a4e;
+  /* The same identity as the rest of the product, aliased rather than
+     restated. These were duplicate literals, which is how the interior and
+     the landing drifted into two different looks in the first place. */
+  --l-bg: var(--paper);
+  --l-surface: var(--surface);
+  --l-surface-2: var(--surface-2);
+  --l-text: var(--ink);
+  --l-muted: var(--muted);
+  --l-line: var(--line);
+  --l-line-strong: var(--line-strong);
+  --l-accent: var(--accent);
+  --l-accent-hover: var(--accent-hover);
 
   background: var(--l-bg);
   color: var(--l-text);
@@ -265,4 +231,25 @@ select:focus-visible,
   .animate-mark-in,
   .animate-mark-out,
   .animate-slow-spin { animation: none; opacity: 1; filter: none; transform: none; }
+}
+
+/* Scroll-linked depth of field: content softens as it leaves the viewport,
+   rather than a one-shot reveal. Native scroll-driven animation, so it costs
+   no JavaScript and no scroll listener where the browser supports it. Where
+   it does not, nothing happens - a missing softening is not a broken page. */
+@supports (animation-timeline: view()) {
+  .depth-blur {
+    animation: orion-depth-blur linear both;
+    animation-timeline: view();
+    animation-range: cover 0% cover 92%;
+  }
+}
+
+@keyframes orion-depth-blur {
+  0%, 45% { filter: blur(0); opacity: 1; }
+  100%    { filter: blur(11px); opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .depth-blur { animation: none; filter: none; opacity: 1; }
 }

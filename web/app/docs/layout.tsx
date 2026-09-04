@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { LogoMark } from "@/components/logo-mark";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 /** Docs are public.
  *
@@ -33,7 +32,6 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
             </span>
           </Link>
           <div className="flex items-center gap-4">
-            <ThemeToggle />
             <Link
               href="/negotiate"
               className="rounded bg-accent px-4 py-2 text-[13px] font-medium text-accent-ink transition-colors hover:bg-accent-hover"

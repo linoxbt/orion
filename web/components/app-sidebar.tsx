@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { Wordmark } from "./wordmark";
 import { LogoMark } from "./logo-mark";
-import { ThemeToggle } from "./theme-toggle";
 import { useSidebar } from "./sidebar-context";
 import { UserChip } from "./auth/user-chip";
 
@@ -89,7 +88,6 @@ export function AppSidebar() {
           >
             {isCollapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
           </button>
-          <ThemeToggle />
           {!isCollapsed && (
             <div className="flex flex-col gap-1">
               <Link href="/" className="text-[12px] text-muted transition-colors hover:text-ink">
@@ -165,7 +163,6 @@ function MobileDrawer() {
         <p className="mb-3 px-3 font-mono text-[9px] uppercase tracking-[0.22em] text-muted">Menu</p>
         <NavLinks collapsed={false} onNavigate={closeMobile} ariaLabel="Mobile primary" />
         <div className="mt-auto flex flex-col gap-3 pt-8">
-          <ThemeToggle />
           <div className="flex flex-col gap-1">
             <Link href="/" className="font-mono text-xs text-muted hover:text-ink">
               ← Back to site

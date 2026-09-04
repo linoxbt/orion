@@ -4,6 +4,7 @@ import { LandingNav } from "@/components/landing/landing-nav";
 import { Marquee } from "@/components/landing/marquee";
 import { SplashIntro } from "@/components/landing/splash-intro";
 import { HeroWatermark } from "@/components/landing/hero-watermark";
+import { Reveal } from "@/components/landing/reveal";
 
 /** The landing page, in the visual language of stacks.co.
  *
@@ -205,12 +206,14 @@ export default function HomePage() {
         </section>
 
         {/* Three steps */}
-        <section id="how-it-works" className="border-b border-[var(--l-line)]">
+        <section id="how-it-works" className="depth-blur border-b border-[var(--l-line)]">
           <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:py-24">
-            <Eyebrow>How it works</Eyebrow>
-            <h2 className="mt-5 max-w-2xl text-[2rem] font-medium leading-[1.1] tracking-[-0.025em] text-[var(--l-text)] sm:text-[2.6rem]">
-              Three steps, and you sit none of them out.
-            </h2>
+            <Reveal>
+              <Eyebrow>How it works</Eyebrow>
+              <h2 className="mt-5 max-w-2xl text-[2rem] font-medium leading-[1.1] tracking-[-0.025em] text-[var(--l-text)] sm:text-[2.6rem]">
+                Three steps, and you sit none of them out.
+              </h2>
+            </Reveal>
             <div className="mt-14 grid gap-px overflow-hidden rounded-2xl border border-[var(--l-line)] bg-[var(--l-line)] sm:grid-cols-3">
               {STEPS.map((s) => (
                 <div key={s.n} className="bg-[var(--l-surface)] p-7 sm:p-8">
@@ -230,10 +233,12 @@ export default function HomePage() {
         {/* Verticals */}
         <section id="verticals" className="border-b border-[var(--l-line)]">
           <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:py-24">
-            <Eyebrow>What it negotiates</Eyebrow>
-            <h2 className="mt-5 max-w-2xl text-[2rem] font-medium leading-[1.1] tracking-[-0.025em] text-[var(--l-text)] sm:text-[2.6rem]">
-              Three bills, three different arguments.
-            </h2>
+            <Reveal>
+              <Eyebrow>What it negotiates</Eyebrow>
+              <h2 className="mt-5 max-w-2xl text-[2rem] font-medium leading-[1.1] tracking-[-0.025em] text-[var(--l-text)] sm:text-[2.6rem]">
+                Three bills, three different arguments.
+              </h2>
+            </Reveal>
             <div className="mt-14 grid gap-10 sm:grid-cols-2 lg:grid-cols-3 lg:gap-12">
               {VERTICALS.map((v) => (
                 <div key={v.tag} className="border-t border-[var(--l-line-strong)] pt-7">
@@ -254,10 +259,12 @@ export default function HomePage() {
         <section className="border-b border-[var(--l-line)]">
           <div className="mx-auto grid max-w-7xl gap-12 px-5 py-20 sm:px-8 lg:grid-cols-[0.8fr,1.2fr] lg:py-24">
             <div>
-              <Eyebrow>How it behaves</Eyebrow>
-              <h2 className="mt-5 text-[2rem] font-medium leading-[1.1] tracking-[-0.025em] text-[var(--l-text)] sm:text-[2.6rem]">
-                It says what it is.
-              </h2>
+              <Reveal>
+                <Eyebrow>How it behaves</Eyebrow>
+                <h2 className="mt-5 text-[2rem] font-medium leading-[1.1] tracking-[-0.025em] text-[var(--l-text)] sm:text-[2.6rem]">
+                  It says what it is.
+                </h2>
+              </Reveal>
             </div>
             <div className="grid gap-px overflow-hidden rounded-2xl border border-[var(--l-line)] bg-[var(--l-line)] sm:grid-cols-2">
               {BEHAVIOUR.map((b) => (
@@ -275,10 +282,12 @@ export default function HomePage() {
         {/* Paths - native details/summary, so it works without JavaScript. */}
         <section className="border-b border-[var(--l-line)]">
           <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:py-24">
-            <Eyebrow>Where to start</Eyebrow>
-            <h2 className="mt-5 max-w-2xl text-[2rem] font-medium leading-[1.1] tracking-[-0.025em] text-[var(--l-text)] sm:text-[2.6rem]">
-              Choose your bill.
-            </h2>
+            <Reveal>
+              <Eyebrow>Where to start</Eyebrow>
+              <h2 className="mt-5 max-w-2xl text-[2rem] font-medium leading-[1.1] tracking-[-0.025em] text-[var(--l-text)] sm:text-[2.6rem]">
+                Choose your bill.
+              </h2>
+            </Reveal>
             <div className="mt-12 border-t border-[var(--l-line)]">
               {PATHS.map((p) => (
                 <details key={p.name} className="group border-b border-[var(--l-line)]">

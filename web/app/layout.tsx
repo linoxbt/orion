@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Instrument_Serif, Instrument_Sans, Inter, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { MotionProvider } from "@/components/motion-provider";
-import { ThemeProvider, themeInitScript } from "@/components/theme-provider";
 import { DynamicProvider } from "@/components/auth/dynamic-provider";
 
 // Editorial pairing: a serif carries the headlines and the money figures, a
@@ -51,15 +50,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${display.variable} ${sans.variable} ${grotesk.variable} ${mono.variable}`}
       suppressHydrationWarning
     >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-      </head>
       <body>
-        <ThemeProvider>
-          <DynamicProvider>
-            <MotionProvider>{children}</MotionProvider>
-          </DynamicProvider>
-        </ThemeProvider>
+        <DynamicProvider>
+          <MotionProvider>{children}</MotionProvider>
+        </DynamicProvider>
       </body>
     </html>
   );
