@@ -24,6 +24,15 @@ const HOME: Record<string, string> = {
   app: "/dashboard",
 };
 
+/**
+ * Hostnames that own a whole section of the app rather than just a landing
+ * spot. On docs.useorion.xyz every path is a documentation path, so the
+ * "/docs" prefix is noise in the address bar: the hostname already said it.
+ */
+const SECTION_PREFIX: Record<string, string> = {
+  docs: "/docs",
+};
+
 function subdomainOf(host: string): string | null {
   // Strip the port a local or preview host may carry.
   const name = host.split(":")[0].toLowerCase();
@@ -41,8 +50,28 @@ export function middleware(request: NextRequest) {
   const home = HOME[sub];
   if (!home) return NextResponse.next();
 
-  // Only the root. Anything deeper is already a real path on this app.
-  if (request.nextUrl.pathname !== "/") return NextResponse.next();
+  const { pathname } = request.nextUrl;
+  const prefix = SECTION_PREFIX[sub];
+
+  if (prefix) {
+    // The prefix is redundant on this hostname, so send it to the clean form
+    // once rather than serving the same page at two addresses.
+    if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {
+      const url = request.nextUrl.clone();
+      url.pathname = pathname.slice(prefix.length) || "/";
+      return NextResponse.redirect(url, 308);
+    }
+
+    // Everything else on this hostname is that section, rewritten so the
+    // address bar keeps the short URL the reader actually typed.
+    const url = request.nextUrl.clone();
+    url.pathname = pathname === "/" ? prefix : `${prefix}${pathname}`;
+    return NextResponse.rewrite(url);
+  }
+
+  // Hostnames with only a landing spot: the root goes there, anything deeper
+  // is already a real path on this app.
+  if (pathname !== "/") return NextResponse.next();
 
   const url = request.nextUrl.clone();
   url.pathname = home;
