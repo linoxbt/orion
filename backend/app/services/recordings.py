@@ -42,21 +42,26 @@ def _headers(extra: dict[str, str] | None = None) -> dict[str, str]:
     }
 
 
-def object_path(user_id: str | None, task_id: str) -> str:
-    """One recording per negotiation, filed under its owner.
+def object_path(user_id: str | None, task_id: str, call_sid: str | None = None) -> str:
+    """One recording per call, filed under its owner and negotiation.
 
-    The owner is in the path so a listing is scoped per account, and an
-    unowned negotiation cannot collide with a real customer's file.
+    The call SID is in the name because a negotiation is dialled more than
+    once - the first attempt often reaches nobody - and keying only on the
+    negotiation meant each retry overwrote the recording before it. The owner
+    is in the path so a listing is scoped per account.
     """
-    return f"{user_id or 'unowned'}/{task_id}.mp3"
+    leaf = f"{task_id}-{call_sid}" if call_sid else task_id
+    return f"{user_id or 'unowned'}/{leaf}.mp3"
 
 
-async def store(user_id: str | None, task_id: str, audio: bytes) -> str | None:
+async def store(
+    user_id: str | None, task_id: str, audio: bytes, call_sid: str | None = None
+) -> str | None:
     """Copy a recording into our own bucket. Returns the stored path."""
     if not is_configured():
         return None
 
-    path = object_path(user_id, task_id)
+    path = object_path(user_id, task_id, call_sid)
     async with httpx.AsyncClient(timeout=60.0) as client:
         res = await client.post(
             f"{_storage_base()}/object/{BUCKET}/{path}",

@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.models import BillExtraction, NegotiationSession, NegotiationStatus
+from app.models import CallAttempt, BillExtraction, NegotiationSession, NegotiationStatus
 from app.playbooks import get_playbook
 from app.security import require_owned_session, require_user_id
 from app.services import account_vault, events, recordings, supabase_store
@@ -171,6 +171,13 @@ async def call_negotiation(
 
     session.call_sid = call_sid
     session.status = NegotiationStatus.CALLING
+    # Each dial is its own record. Retries are expected - the first attempt
+    # often reaches nobody - and a single recording field meant every retry
+    # erased the one before it.
+    session.attempts.append(
+        CallAttempt(call_sid=call_sid, started_at=datetime.now(timezone.utc).isoformat())
+    )
+    session.answered_at = None
     await save_session(session)
     return session
 
@@ -251,6 +258,57 @@ class Recording(BaseModel):
     url: str | None = None
     expires_in: int | None = None
     reason: str | None = None
+
+
+class CallRecord(BaseModel):
+    """One dial, as the customer sees it."""
+
+    call_sid: str | None
+    started_at: str
+    answered: bool
+    ended_at: str | None
+    end_reason: str | None
+    duration_seconds: int | None
+    outcome: str | None
+    url: str | None
+    download_name: str | None
+
+
+@router.get("/{task_id}/calls", response_model=list[CallRecord])
+async def list_calls(
+    session: NegotiationSession = Depends(require_owned_session),
+) -> list[CallRecord]:
+    """Every call made on this negotiation, newest first.
+
+    A negotiation is dialled more than once - the first attempt often reaches
+    nobody - so listing only the last recording hid most of what was done on
+    the customer's behalf. Each link is signed and expires, and ownership is
+    checked before any of them are minted.
+    """
+    out: list[CallRecord] = []
+    for attempt in reversed(session.attempts):
+        url = (
+            await recordings.playback_url(attempt.recording_path)
+            if attempt.recording_path
+            else None
+        )
+        stamp = (attempt.started_at or "")[:19].replace("T", " ").replace(":", "-")
+        out.append(
+            CallRecord(
+                call_sid=attempt.call_sid,
+                started_at=attempt.started_at,
+                answered=attempt.answered,
+                ended_at=attempt.ended_at,
+                end_reason=attempt.end_reason,
+                duration_seconds=attempt.duration_seconds,
+                outcome=attempt.outcome,
+                url=url,
+                download_name=f"orion-{session.provider}-{stamp}.mp3".replace(" ", "-").lower()
+                if url
+                else None,
+            )
+        )
+    return out
 
 
 @router.get("/{task_id}/recording", response_model=Recording)

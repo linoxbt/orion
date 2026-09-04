@@ -73,6 +73,11 @@ Return ONLY a JSON object with these keys:
   "previous_rate": number or null - the monthly rate before the change, in USD.
   "new_rate": number or null - the agreed monthly rate after the change, in USD.
   "confirmation_number": string or null - the confirmation or reference number, if one was read out.
+  "recommendation": string - two or three sentences addressed to the customer, in plain English, \
+saying what this call means for them and what to do next. Be concrete and specific to what \
+actually happened: whether to accept, to call again at a better time, to escalate, to ask for a \
+supervisor or a different department, or to leave it alone because the current rate is already \
+competitive. If nothing happened, say what to try instead. Never pad it with encouragement.
 
 Rules: only report a rate or confirmation number the representative actually stated. \
 If the call ended without a firm commitment, "agreed" is false and the rates are null. \
@@ -116,6 +121,11 @@ async def ingest_recording(
     if not session.answered_at:
         logger.info("Skipping verification for %s: never answered", session.task_id)
         session.outcome = session.outcome or "The call was not answered."
+        session.recommendation = session.recommendation or (
+            "Nobody picked up. Retention lines are usually quietest mid-morning on a "
+            "weekday, so calling again then is the best next step. Nothing was said on "
+            "your behalf and you have not been charged."
+        )
         session.verification_source = "not_answered"
         await save_session(session)
         return None
@@ -128,6 +138,10 @@ async def ingest_recording(
         )
         session.outcome = session.outcome or (
             f"The call ended after {duration_seconds} seconds, before anything was agreed."
+        )
+        session.recommendation = session.recommendation or (
+            "The call ended almost immediately, which usually means it was cut off rather "
+            "than refused. Trying again is worth it before assuming the number is wrong."
         )
         session.verification_source = "too_short"
         await save_session(session)
@@ -146,9 +160,17 @@ async def ingest_recording(
         # existing. Failing to store must not stop the verification that
         # follows, which is the part a saving depends on.
         try:
-            stored = await recordings.store(session.user_id, session.task_id, audio.content)
+            attempt = session.attempts[-1] if session.attempts else None
+            stored = await recordings.store(
+                session.user_id,
+                session.task_id,
+                audio.content,
+                attempt.call_sid if attempt else session.call_sid,
+            )
             if stored:
                 session.recording_path = stored
+                if attempt:
+                    attempt.recording_path = stored
                 await save_session(session)
         except Exception as exc:  # noqa: BLE001 - never block verification
             logger.warning("Could not archive the recording for %s: %s", session.task_id, exc)
@@ -250,6 +272,10 @@ async def apply_transcript(session: NegotiationSession, transcript_id: str) -> N
         session.new_rate = float(extracted["new_rate"])
     if session.previous_rate is None and extracted.get("previous_rate") is not None:
         session.previous_rate = float(extracted["previous_rate"])
+
+    session.recommendation = extracted.get("recommendation") or session.recommendation
+    if session.attempts:
+        session.attempts[-1].outcome = session.outcome
 
     agreed = bool(extracted.get("agreed"))
     session.verified = agreed and session.new_rate is not None and session.previous_rate is not None

@@ -170,6 +170,32 @@ class Offer(BaseModel):
     accepted: bool = False
 
 
+class CallAttempt(BaseModel):
+    """One dial of one negotiation.
+
+    A negotiation is called as many times as it takes - the first attempt
+    often reaches nobody - so a single recording_url on the session meant every
+    retry erased the one before it. Each attempt keeps its own recording,
+    transcript and outcome, so a customer can hear all of them rather than
+    only the last.
+    """
+
+    call_sid: str | None = None
+    started_at: str
+    answered_at: str | None = None
+    ended_at: str | None = None
+    # Twilio's own last word: completed, no-answer, busy, failed, canceled.
+    end_reason: str | None = None
+    duration_seconds: int | None = None
+    recording_path: str | None = None
+    transcript_id: str | None = None
+    outcome: str | None = None
+
+    @property
+    def answered(self) -> bool:
+        return self.answered_at is not None
+
+
 class NegotiationStatus(str, Enum):
     PENDING = "pending"
     CALLING = "calling"
@@ -197,6 +223,11 @@ class NegotiationSession(BaseModel):
 
     status: NegotiationStatus = NegotiationStatus.PENDING
     call_sid: str | None = None
+
+    # Every dial of this negotiation, oldest first. The single-recording
+    # fields below are kept for the most recent attempt so existing readers
+    # keep working, but this list is the record.
+    attempts: list[CallAttempt] = []
 
     # When the far end actually picked up, written only by the status webhook
     # on CallStatus=in-progress. `status` cannot answer this: it is set to
@@ -267,6 +298,11 @@ class NegotiationSession(BaseModel):
     # agreement are recorded alongside the name they typed - "they clicked a
     # box" is not a record of anything.
     authorized: bool = False
+    # Orion's own conclusion, written after the call: what happened, and what
+    # the customer should do about it. Distinct from `outcome`, which states
+    # the fact; this is the advice that follows from it.
+    recommendation: str | None = None
+
     consent_signer_name: str | None = None
     consent_version: str | None = None
     consent_at: str | None = None

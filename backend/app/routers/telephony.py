@@ -30,6 +30,19 @@ from app.store import get_session, save_session
 
 # How a call can end, and what to record when it does. "completed" is the only
 # one that means a conversation actually happened.
+def _attempt_for(session, call_sid: str | None):
+    """The dial a webhook belongs to, by SID.
+
+    Falls back to the most recent attempt only when the SID is unknown, so a
+    stray callback cannot silently rewrite a different call's record.
+    """
+    if call_sid:
+        for attempt in reversed(session.attempts):
+            if attempt.call_sid == call_sid:
+                return attempt
+    return session.attempts[-1] if session.attempts else None
+
+
 _ENDED_STATUSES = {
     "completed": "",
     "busy": "The line was busy.",
@@ -160,6 +173,11 @@ async def recording_webhook(
     except ValueError:
         duration = 0
 
+    attempt = _attempt_for(session, params.get("CallSid"))
+    if attempt:
+        attempt.duration_seconds = duration
+        await save_session(session)
+
     background.add_task(ingest_recording, session, recording_url, duration)
     return {"status": "accepted"}
 
@@ -233,13 +251,21 @@ async def status_webhook(
     call_status = params.get("CallStatus", "")
     events.publish(taskId, {"type": "call_status", "status": call_status})
 
+    # Which dial this is about. Matching on the SID rather than assuming the
+    # last one keeps a late webhook from a previous attempt off the current
+    # one's record.
+    attempt = _attempt_for(session, params.get("CallSid"))
+
     if call_status == "in-progress":
         # Answered. This is the only place answered_at is written, and it is
         # what the screen keys the timer off - `status` is already CALLING from
         # the moment dialling was accepted, so it cannot tell the two apart.
         session.status = NegotiationStatus.CALLING
+        now = datetime.now(timezone.utc).isoformat()
         if not session.answered_at:
-            session.answered_at = datetime.now(timezone.utc).isoformat()
+            session.answered_at = now
+        if attempt and not attempt.answered_at:
+            attempt.answered_at = now
         await save_session(session)
     elif call_status in _ENDED_STATUSES:
         # The call is over however it ended, so the screen must not stay live.
@@ -251,6 +277,11 @@ async def status_webhook(
             )
         if call_status != "completed" and not session.outcome:
             session.outcome = _ENDED_STATUSES[call_status]
+        if attempt:
+            attempt.ended_at = datetime.now(timezone.utc).isoformat()
+            attempt.end_reason = call_status
+            if not attempt.outcome and call_status != "completed":
+                attempt.outcome = _ENDED_STATUSES[call_status]
         await save_session(session)
         events.publish(
             taskId,
