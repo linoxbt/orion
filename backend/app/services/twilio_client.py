@@ -3,6 +3,7 @@ import hmac
 import time
 from functools import lru_cache
 
+from twilio.base.exceptions import TwilioRestException
 from twilio.request_validator import RequestValidator
 from twilio.rest import Client
 
@@ -12,6 +13,22 @@ from app.models import NegotiationSession
 
 class TwilioNotConfigured(RuntimeError):
     pass
+
+
+class CallRejected(RuntimeError):
+    """Twilio refused to place the call, and the reason is the caller's.
+
+    A 400 from Twilio is not a server fault: the number is unreachable on this
+    account, is not a valid destination, or the account cannot afford it. It
+    used to escape as an unhandled exception, so the UI showed
+    'request_failed_500' and the actual reason - which Twilio states plainly -
+    was only visible in the logs.
+    """
+
+    def __init__(self, message: str, hint: str | None = None):
+        super().__init__(message)
+        self.message = message
+        self.hint = hint
 
 
 @lru_cache
@@ -58,18 +75,57 @@ def place_outbound_call(session: NegotiationSession) -> str:
     if not settings.twilio_phone_number:
         raise TwilioNotConfigured("TWILIO_PHONE_NUMBER is not set")
     client = get_client()
-    call = client.calls.create(
-        to=session.phone_number,
-        from_=settings.twilio_phone_number,
-        url=voice_webhook_url(session.task_id),
-        # The recording is the evidence the post-call verification pass runs on
-        # (app/services/verification.py) - without it a negotiated saving can't
-        # be verified, and an unverified saving is never billed.
-        record=True,
-        recording_status_callback=recording_webhook_url(session.task_id),
-        recording_status_callback_event=["completed"],
-    )
+    try:
+        call = client.calls.create(
+            to=session.phone_number,
+            from_=settings.twilio_phone_number,
+            url=voice_webhook_url(session.task_id),
+            # The recording is the evidence the post-call verification pass runs
+            # on (app/services/verification.py) - without it a negotiated saving
+            # can't be verified, and an unverified saving is never billed.
+            record=True,
+            recording_status_callback=recording_webhook_url(session.task_id),
+            recording_status_callback_event=["completed"],
+        )
+    except TwilioRestException as exc:
+        # Twilio's own message is the most accurate description of what went
+        # wrong, so it is passed through rather than replaced with a generic
+        # one. The hint adds what to actually do about the cases that come up.
+        raise CallRejected(exc.msg or str(exc), _hint_for(exc)) from exc
     return call.sid
+
+
+# Twilio error codes worth explaining rather than merely reporting.
+# https://www.twilio.com/docs/api/errors
+_HINTS = {
+    21215: (
+        "This Twilio account is not permitted to dial that country. Enable it "
+        "under Voice > Settings > Geo permissions in the Twilio Console."
+    ),
+    21210: (
+        "The 'from' number is not a verified caller id on this account."
+    ),
+    21211: "That is not a valid phone number. Use full international format, e.g. +14155551234.",
+    21219: (
+        "On a trial account every destination must be verified first, under "
+        "Phone Numbers > Verified caller ids."
+    ),
+    21606: (
+        "The Twilio number cannot make outbound calls. Buy a voice-capable "
+        "number, or check the number is still active."
+    ),
+    20003: "Twilio rejected the credentials, or the account has insufficient funds.",
+}
+
+
+def _hint_for(exc: TwilioRestException) -> str | None:
+    if exc.code in _HINTS:
+        return _HINTS[exc.code]
+    # Geo permissions is the one people hit first and Twilio's own wording
+    # already points at it, so catch it even under a code we have not listed.
+    if "not authorized to call" in (exc.msg or "").lower():
+        return _HINTS[21215]
+    return None
 
 
 # --- Media Stream authentication -------------------------------------------

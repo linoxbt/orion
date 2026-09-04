@@ -14,7 +14,11 @@ from app.playbooks import get_playbook
 from app.security import require_owned_session, require_user_id
 from app.services import account_vault, events, supabase_store
 from app.services.billing import StripeNotConfigured, charge_success_fee
-from app.services.twilio_client import TwilioNotConfigured, place_outbound_call
+from app.services.twilio_client import (
+    CallRejected,
+    TwilioNotConfigured,
+    place_outbound_call,
+)
 from app.store import get_session, list_sessions, save_session
 
 logger = logging.getLogger(__name__)
@@ -121,6 +125,16 @@ async def call_negotiation(
         session.status = NegotiationStatus.FAILED
         await save_session(session)
         raise HTTPException(status_code=503, detail="twilio_not_configured") from exc
+    except CallRejected as exc:
+        # Twilio refused, and the reason belongs to the request rather than the
+        # server. Left unhandled this was a 500 reading "request_failed_500",
+        # which told the customer nothing about a problem they can fix.
+        session.status = NegotiationStatus.FAILED
+        session.outcome = f"Call not placed: {exc.message}"
+        await save_session(session)
+        detail = exc.message if not exc.hint else f"{exc.message} {exc.hint}"
+        logger.warning("Twilio refused the call for %s: %s", session.task_id, exc.message)
+        raise HTTPException(status_code=422, detail=detail) from exc
 
     session.call_sid = call_sid
     session.status = NegotiationStatus.CALLING

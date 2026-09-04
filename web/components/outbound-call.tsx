@@ -48,14 +48,19 @@ export function OutboundCall({
       setScreenOpen(true);
     } catch (err) {
       const detail = err instanceof ApiError ? err.detail : "";
+      // A 422 carries Twilio's own explanation of why it refused, which is
+      // far more use than a generic failure - the first one most people hit
+      // is dialling a country the account has not enabled.
       setError(
         detail === "twilio_not_configured"
           ? "No phone line is connected, so the call can't be dialled."
           : detail === "not_authorized"
             ? "Authorise Orion above first."
-            : err instanceof Error
-              ? err.message
-              : String(err)
+            : detail
+              ? detail
+              : err instanceof Error
+                ? err.message
+                : String(err)
       );
     } finally {
       setCalling(false);
