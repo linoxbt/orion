@@ -15,7 +15,7 @@ tiers, and the one paid dependency is narrower than it looks.
 - [Required: the four keys Orion cannot start without](#required-the-four-keys-orion-cannot-start-without)
 - [Optional: real outbound calls](#optional-real-outbound-calls)
 - [Optional: escalation channels](#optional-escalation-channels)
-- [Optional: billing](#optional-billing)
+- [Plans and payments](#plans-and-payments)
 - [Reference: the full variable list](#reference-the-full-variable-list)
 - [Checking your configuration](#checking-your-configuration)
 
@@ -245,21 +245,70 @@ Without it the message arrives with no link.
 
 ---
 
-## Optional: billing
+## Plans and payments
 
-### `STRIPE_SECRET_KEY`
+Orion meters bills, not calls. A **bill** is the unit: extraction, the
+negotiation it produces, and every call on it come out of one allowance.
 
-Only needed to charge a success fee.
+| Plan | Bills per month | Price |
+| --- | --- | --- |
+| Free | 5, resetting on the 1st | nothing |
+| Unlimited | no limit | $15 a month |
 
-1. Create an account at [stripe.com](https://dashboard.stripe.com/register).
-2. **Developers → API keys**.
-3. Copy the **Secret key**, `sk_test_…` while testing, `sk_live_…` in
-   production.
+### Why Paystack and not Stripe
 
-Orion only ever charges against a verified outcome, so nothing is billed for a
-negotiation whose recording does not support the saving.
+**Stripe does not support Nigerian merchants.** A Nigerian business cannot hold
+a Stripe account, so the subscription runs on
+[Paystack](https://paystack.com) - which Stripe owns, and which covers Nigeria,
+Ghana, Kenya, South Africa and Cote d'Ivoire.
 
----
+### `PAYSTACK_SECRET_KEY`
+
+1. Sign in at [dashboard.paystack.com](https://dashboard.paystack.com).
+2. **Settings → API Keys & Webhooks**.
+3. Copy the **Live Secret Key** (`sk_live_...`).
+
+### The webhook is not optional
+
+Set the dashboard's **Live Webhook URL** to:
+
+```
+https://<backend-host>/api/plan/webhook
+```
+
+That webhook is the **only** thing that grants a paid plan. A browser returning
+from the payment page is a claim, not proof, so the account changes only when
+Paystack tells the server directly, or when the server asks Paystack to verify
+a reference itself.
+
+The callback URL may be left as-is: Orion sends its own per transaction, which
+overrides the dashboard's. Do not give it a query string of its own - Paystack
+appends `?trxref=..&reference=..` verbatim, and two query strings run together.
+
+### Card payments
+
+A new Paystack account usually cannot take cards until compliance is complete,
+and the checkout then offers bank transfer, USSD and direct bank only. Card is
+already first in `PAYSTACK_CHANNELS`, and Paystack ignores a channel an account
+lacks, so **card appears on its own the moment it is enabled** - no deploy
+needed.
+
+To check what your account can actually take:
+
+```bash
+curl -s https://api.paystack.co/transaction/initialize \
+  -H "Authorization: Bearer $PAYSTACK_SECRET_KEY" -H "content-type: application/json" \
+  -d '{"email":"you@example.com","amount":100000,"currency":"NGN","channels":["card"]}'
+```
+
+`"No active channel to process transaction"` means card is not enabled yet.
+Complete **Compliance** in the dashboard, then contact Paystack support.
+
+### Optional: the per-negotiation success fee
+
+`STRIPE_SECRET_KEY` charges a share of a verified saving, separately from the
+subscription. It is unavailable to Nigerian merchants, and where it is unset
+the charge button is hidden rather than offered and failing.
 
 ## Reference: the full variable list
 
@@ -283,7 +332,12 @@ negotiation whose recording does not support the saving.
 | `SENDGRID_API_KEY` | optional | Email escalation |
 | `ESCALATION_EMAIL_FROM` | optional | Verified SendGrid sender |
 | `PUBLIC_APP_URL` | optional | Links inside escalation messages |
-| `STRIPE_SECRET_KEY` | optional | Success-fee billing |
+| `STRIPE_SECRET_KEY` | optional | Per-negotiation success fee. Unavailable to Nigerian merchants |
+| `PAYSTACK_SECRET_KEY` | for paid plans | The $15/month subscription |
+| `PAYSTACK_CURRENCY` | has a default | `NGN` |
+| `PRO_PRICE` | has a default | Whole units of the currency above |
+| `PAYSTACK_CHANNELS` | has a default | Checkout methods, in order |
+| `PAYSTACK_PLAN_CODE` | has a default | Pin a plan, or let one be created |
 | `ESCALATION_WHATSAPP_TO` | fallback only | Single-user deployments. Leave unset in multi-user |
 | `ESCALATION_EMAIL_TO` | fallback only | As above |
 | `VOICE_BACKEND` | has a default | `agent_api` or `stt_gemini` |

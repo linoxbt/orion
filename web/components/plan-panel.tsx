@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
-import { confirmUpgrade, getPlan, startUpgrade, type PlanState } from "@/lib/api";
+import { cancelPlan, confirmUpgrade, getPlan, startUpgrade, type PlanState } from "@/lib/api";
 
 /** The plan, what is left of the free allowance, and the way off it.
  *
@@ -86,10 +86,43 @@ export function PlanPanel() {
       </div>
 
       {plan.unlimited ? (
-        <p className="mt-4 text-[14px] leading-relaxed text-ink-soft">
-          As many bills as you like.
-          {plan.expires_at && ` Renews ${new Date(plan.expires_at).toLocaleDateString()}.`}
-        </p>
+        <>
+          <p className="mt-4 text-[14px] leading-relaxed text-ink-soft">
+            As many bills as you like.{" "}
+            {plan.renews && plan.next_payment_at
+              ? `Renews ${new Date(plan.next_payment_at).toLocaleDateString()}.`
+              : plan.expires_at
+                ? `Ends ${new Date(plan.expires_at).toLocaleDateString()}, and will not renew.`
+                : ""}
+          </p>
+
+          {plan.subscription_status === "attention" && (
+            <p className="mt-3 text-[14px] leading-relaxed text-fail">
+              The last renewal payment failed. Update your card before the plan lapses.
+            </p>
+          )}
+
+          {plan.renews && (
+            <button
+              type="button"
+              onClick={async () => {
+                setBusy(true);
+                setError(null);
+                try {
+                  setPlan(await cancelPlan());
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : String(err));
+                } finally {
+                  setBusy(false);
+                }
+              }}
+              disabled={busy}
+              className="mt-5 text-[13px] text-muted underline decoration-transparent underline-offset-4 transition hover:decoration-current disabled:opacity-40"
+            >
+              Cancel renewal
+            </button>
+          )}
+        </>
       ) : (
         <>
           <p className="mt-4 text-[14px] leading-relaxed text-ink-soft">

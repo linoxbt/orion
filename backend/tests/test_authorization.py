@@ -383,3 +383,78 @@ class TestUnownedSessions:
         assert (
             client.post(f"/api/negotiations/{task_id}/call", headers=INTRUDER).status_code == 404
         )
+
+
+class TestMoneySpendingLimits:
+    """Every endpoint that spends real money needs a ceiling.
+
+    Placing a call bills a phone line per attempt, and retries are unlimited by
+    design, so the button is loopable. Opening a payment creates a transaction
+    on the payment provider.
+    """
+
+    def setup_method(self):
+        from app.services.ratelimit import reset
+
+        reset()
+
+    def teardown_method(self):
+        from app.services.ratelimit import reset
+
+        reset()
+
+    def test_placing_calls_is_capped(self, client):
+        from app.config import settings
+
+        task_id = client.post(
+            "/api/negotiations/start",
+            headers=OWNER,
+            json={"provider": "Comcast", "phone_number": "+15551234567",
+                  "vertical": "cable_internet"},
+        ).json()["task_id"]
+        client.post(
+            f"/api/negotiations/{task_id}/consent",
+            headers=OWNER,
+            json={"signer_name": "Denis", "agreed": True},
+        )
+
+        seen = set()
+        for _ in range(12):
+            seen.add(client.post(f"/api/negotiations/{task_id}/call", headers=OWNER).status_code)
+        assert 429 in seen
+
+    def test_the_cap_is_per_user(self, client):
+        """One account looping must not block everyone else from calling."""
+        mine = client.post(
+            "/api/negotiations/start",
+            headers=OWNER,
+            json={"provider": "A", "phone_number": "+15551234567", "vertical": "cable_internet"},
+        ).json()["task_id"]
+        client.post(
+            f"/api/negotiations/{mine}/consent",
+            headers=OWNER, json={"signer_name": "D", "agreed": True},
+        )
+        for _ in range(12):
+            client.post(f"/api/negotiations/{mine}/call", headers=OWNER)
+
+        theirs = client.post(
+            "/api/negotiations/start",
+            headers=INTRUDER,
+            json={"provider": "B", "phone_number": "+15551234567", "vertical": "cable_internet"},
+        ).json()["task_id"]
+        client.post(
+            f"/api/negotiations/{theirs}/consent",
+            headers=INTRUDER, json={"signer_name": "I", "agreed": True},
+        )
+        assert client.post(
+            f"/api/negotiations/{theirs}/call", headers=INTRUDER
+        ).status_code != 429
+
+    def test_opening_payments_is_capped(self, client, monkeypatch):
+        from app.config import settings
+
+        monkeypatch.setattr(settings, "paystack_secret_key", "sk_test_1")
+        seen = set()
+        for _ in range(10):
+            seen.add(client.post("/api/plan/upgrade", headers=OWNER).status_code)
+        assert 429 in seen

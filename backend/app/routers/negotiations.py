@@ -13,9 +13,11 @@ from app.models import BillExtraction, NegotiationSession, NegotiationStatus
 from app.playbooks import get_playbook
 from app.security import require_owned_session, require_user_id
 from app.services import account_vault, events, supabase_store
+from app.services.ratelimit import limit
 from app.services.billing import StripeNotConfigured, charge_success_fee
 from app.services.twilio_client import (
     CallRejected,
+    end_call,
     TwilioNotConfigured,
     place_outbound_call,
 )
@@ -116,8 +118,28 @@ async def call_negotiation(
     already be authorized (build spec Section 3's consent-before-call
     requirement) - use POST /{task_id}/authorization first.
     """
+    # A seeded example is not a negotiation. Its provider numbers are real -
+    # Comcast, AT&T, a hospital billing line - and its bill is invented, so
+    # dialling one would put an agent on the phone to a real company arguing
+    # from figures nobody was ever billed. The flag existed but was read only
+    # by the dashboard's totals; nothing on the call path looked at it.
+    if session.is_sample:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "sample_negotiation: this is a worked example, not a real bill. "
+                "Upload one of your own to place a call."
+            ),
+        )
+
     if not session.authorized:
         raise HTTPException(status_code=409, detail="not_authorized")
+
+    # Each call is real money on a real phone line, and retries are now
+    # unlimited by design, so the button is loopable. A cap that no honest
+    # retry will ever reach still stops a stuck loop or a hostile script from
+    # spending the account down.
+    limit(f"call:{session.user_id or task_id}", max_calls=8, per_seconds=600)
 
     # A negotiation may be called as many times as it takes. The first attempt
     # often does not reach anyone: the line is busy, nobody picks up, the menu
@@ -184,6 +206,41 @@ async def list_negotiations(
 async def get_negotiation(
     session: NegotiationSession = Depends(require_owned_session),
 ) -> NegotiationSession:
+    return session
+
+
+@router.post("/{task_id}/hangup", response_model=NegotiationSession,
+    response_model_exclude=PRIVATE_FIELDS)
+async def hangup_negotiation(
+    task_id: str, session: NegotiationSession = Depends(require_owned_session)
+) -> NegotiationSession:
+    """End a call that is still running.
+
+    The on-screen End button used to close the window and nothing else, so a
+    call carried on with nobody able to stop it. Ending is idempotent: a call
+    that has already finished is a success, not a 409, because the caller's
+    intent is satisfied either way.
+    """
+    if session.call_sid and session.status == NegotiationStatus.CALLING:
+        try:
+            end_call(session.call_sid)
+        except TwilioNotConfigured as exc:
+            raise HTTPException(status_code=503, detail="twilio_not_configured") from exc
+        except CallRejected as exc:
+            logger.warning("Could not end %s: %s", session.task_id, exc.message)
+            raise HTTPException(status_code=422, detail=exc.message) from exc
+
+    # Twilio's status webhook will confirm this, but the caller should not have
+    # to wait for a webhook to see the call they just ended.
+    if session.status == NegotiationStatus.CALLING:
+        session.status = NegotiationStatus.COMPLETED
+        if not session.outcome:
+            session.outcome = "Ended from the app."
+        await save_session(session)
+
+    events.publish(
+        session.task_id, {"type": "status", "status": "call_ended", "reason": "hung_up"}
+    )
     return session
 
 

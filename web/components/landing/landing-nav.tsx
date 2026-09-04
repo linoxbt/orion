@@ -15,8 +15,8 @@ const LINKS: [string, string][] = [
 
 /** The landing page's own header.
  *
- * Separate from the app's SiteHeader, which is built for the light signed-in
- * surface and carries the theme toggle. This one is dark, sticky, and collapses
+ * The app's own header is built for the light signed-in surface and carries
+ * the theme toggle. This one is dark, sticky, and collapses
  * to a full-height sheet on small screens - a row of links that silently
  * disappears below the breakpoint is the usual way a "responsive" marketing
  * page turns out not to be.

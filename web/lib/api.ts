@@ -212,13 +212,6 @@ export function isAuthError(error: unknown): boolean {
   return error instanceof ApiError && error.status === 401;
 }
 
-export async function getHealth(): Promise<Health> {
-  // Liveness only - public, and deliberately says nothing about what is wired
-  // up. Use getCapabilities for that.
-  const res = await fetch(`${API_URL}/health`);
-  return handle<Health>(res);
-}
-
 export async function getCapabilities(): Promise<{ capabilities: HealthCapabilities }> {
   const res = await fetch(`/api/capabilities`, { headers: authHeaders() });
   return handle<{ capabilities: HealthCapabilities }>(res);
@@ -414,6 +407,17 @@ export async function recordConsent(
   return handle<NegotiationSession>(res);
 }
 
+/** End a call that is still running.
+ *
+ * The End button used to close the window and leave the call up. */
+export async function hangUpCall(taskId: string): Promise<NegotiationSession> {
+  const res = await fetch(`/api/negotiations/${taskId}/hangup`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return handle<NegotiationSession>(res);
+}
+
 export function subscribeToNegotiationEvents(
   taskId: string,
   onEvent: (event: LiveEvent) => void
@@ -521,6 +525,10 @@ export interface PlanState {
   price_usd: number;
   expires_at: string | null;
   can_upgrade: boolean;
+  /** Whether Paystack will charge again, so a renewal is never a surprise. */
+  renews: boolean;
+  next_payment_at: string | null;
+  subscription_status: string | null;
 }
 
 export async function getPlan(): Promise<PlanState> {
@@ -532,6 +540,12 @@ export async function getPlan(): Promise<PlanState> {
 export async function startUpgrade(): Promise<{ authorization_url: string; reference: string }> {
   const res = await fetch("/api/plan/upgrade", { method: "POST", headers: authHeaders() });
   return handle<{ authorization_url: string; reference: string }>(res);
+}
+
+/** Stop the plan renewing. The month already paid for is kept. */
+export async function cancelPlan(): Promise<PlanState> {
+  const res = await fetch("/api/plan/cancel", { method: "POST", headers: authHeaders() });
+  return handle<PlanState>(res);
 }
 
 /** Checks a payment on the way back from the payment page.

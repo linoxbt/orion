@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     # without a deploy. Every channel being inactive is what fails, so keep at
     # least one the account actually has.
     paystack_channels: str = "card,bank,ussd,bank_transfer"
+    # Pin a specific Paystack plan, otherwise one matching the price and
+    # interval is found or created on first upgrade.
+    paystack_plan_code: str = ""
     # What the upgrade costs, in whole units of paystack_currency. NGN is the
     # default because a Nigerian Paystack account settles in naira; set both
     # together when charging in another currency.

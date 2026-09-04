@@ -52,6 +52,12 @@ that does.
 | **Verify the outcome** | The recording is transcribed afterwards and the result read back out of it. A saving the transcript does not support is never recorded and never billed. |
 | **Follow up** | A verified saving produces a shareable receipt. The contract end date drives a renewal reminder about six weeks before the promotional rate lapses. |
 
+**Plans.** Five bills a month free, resetting on the 1st; $15 a month for
+unlimited. A bill is the unit - extraction, the negotiation and its calls all
+come out of one allowance. Payment runs on Paystack, and a paid plan is granted
+only by Paystack's signed webhook or by the server verifying a reference
+itself, never by the browser reporting success.
+
 There are two ways to run a negotiation:
 
 - **Rehearsal** runs the identical agent over your microphone with you playing
@@ -142,7 +148,8 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 | `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` | recommended | Persistence. **Both** are required; with only one set the app falls back to SQLite. Use the `service_role` secret key, never the publishable one, and never expose it to a browser. |
 | `GEMINI_MODELS` | no | Ordered fallback chain for extraction. A single pinned model is a liability: Gemini returns "high demand" for minutes at a time and retrying the same one is futile. |
 | `VOICE_BACKEND` | no | `agent_api` (default) or `stt_gemini`. |
-| `STRIPE_SECRET_KEY` | no | Success-fee billing. |
+| `STRIPE_SECRET_KEY` | no | Per-negotiation success fee. Unavailable to Nigerian merchants, and the charge button is hidden without it. |
+| `PAYSTACK_SECRET_KEY` | for paid plans | The $15/month subscription. Stripe cannot be used by a Nigerian business; Paystack is Stripe-owned and covers the region. |
 | `TWILIO_WHATSAPP_FROM` / `SENDGRID_API_KEY` / `ESCALATION_*` | no | How you are reached when the agent hits a wall mid-call. An unconfigured channel is skipped, never raised, because a failed notification must not take down a live call. |
 
 ### Frontend
@@ -256,8 +263,12 @@ the account profile.
 
 Not yet exercised end to end, because they need credentials that are not
 configured: outbound telephony and its DTMF, recording and verification path;
-WhatsApp and email escalation; Stripe billing. The code is written and unit
-tested, but no real call has been placed.
+WhatsApp and email escalation. The code is written and unit tested, but no
+real call has been placed end to end.
+
+Card payments are not yet enabled on the connected Paystack account, so the
+checkout currently offers bank transfer, USSD and direct bank. Card is already
+first in the channel list and appears automatically once Paystack enables it.
 
 Persistence currently falls back to SQLite on a mounted volume, because
 `SUPABASE_SERVICE_KEY` is not set on the backend.

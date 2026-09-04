@@ -118,6 +118,11 @@ async def list_renewals(
     # Scoped to the caller. Unscoped, this listed other people's
     # providers and renewal dates to anyone signed in.
     for session in await list_sessions(user_id):
+        # A seeded example carries a contract end date so the bill looks real,
+        # which meant it surfaced here as a genuine renewal and invited a call
+        # to a company about a bill that does not exist.
+        if session.is_sample:
+            continue
         if session.bill is None or not session.bill.contract_end_date:
             continue
         end = _parse_day(session.bill.contract_end_date)

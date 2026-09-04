@@ -84,6 +84,22 @@ async def get_profile(user_id: str) -> UserProfile | None:
     return UserProfile.model_validate(rows[0]) if rows else None
 
 
+async def find_profile_by_subscription(code: str) -> UserProfile | None:
+    """The account a Paystack subscription belongs to.
+
+    Subscription lifecycle events carry no metadata of ours, so the code
+    recorded when the plan started is the only link back to a customer.
+    """
+    res = await _http().get(
+        f"{_base()}/profiles",
+        headers=_headers(),
+        params={"subscription_code": f"eq.{code}", "select": "*", "limit": 1},
+    )
+    res.raise_for_status()
+    rows = res.json()
+    return UserProfile.model_validate(rows[0]) if rows else None
+
+
 async def ensure_profile(user_id: str) -> None:
     """Make sure a profile row exists for this user.
 
@@ -154,6 +170,36 @@ async def save_session(session: NegotiationSession) -> None:
         json=_row_for(session),
     )
     res.raise_for_status()
+
+
+async def consume_bill_quota(user_id: str, month: str, limit: int) -> tuple[bool, int]:
+    """Spend one bill from the monthly allowance, atomically.
+
+    A Postgres function rather than read-modify-write here: doing the check and
+    the increment in separate steps let concurrent uploads all read the same
+    count and all pass, and let a profile save write a stale count back over
+    it. Returns (allowed, used_after).
+    """
+    res = await _http().post(
+        f"{_base()}/rpc/consume_bill_quota",
+        headers=_headers(),
+        json={"p_user_id": user_id, "p_month": month, "p_limit": limit},
+    )
+    res.raise_for_status()
+    rows = res.json()
+    row = rows[0] if isinstance(rows, list) and rows else rows
+    return bool(row["allowed"]), int(row["used"])
+
+
+async def refund_bill_quota(user_id: str, month: str) -> int:
+    """Return one bill to the allowance. Never below zero, current month only."""
+    res = await _http().post(
+        f"{_base()}/rpc/refund_bill_quota",
+        headers=_headers(),
+        json={"p_user_id": user_id, "p_month": month},
+    )
+    res.raise_for_status()
+    return int(res.json() or 0)
 
 
 def _could_exist(task_id: str) -> bool:

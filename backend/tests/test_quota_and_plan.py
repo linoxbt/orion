@@ -62,47 +62,82 @@ class TestPaidPlan:
 
 
 class TestConsumption:
+    """Consumption is now one atomic statement in the database, so these
+    exercise the call into it rather than a read-modify-write in Python."""
+
     @pytest.fixture
-    def store(self, monkeypatch):
-        saved: dict[str, UserProfile] = {}
+    def db(self, monkeypatch):
+        """A stand-in for the Postgres function, with its semantics."""
+        state = {"used": 0, "plan": "free"}
 
-        async def get_profile(user_id):
-            return saved.get(user_id)
+        async def consume(user_id, month, limit):
+            if state["plan"] == "pro":
+                return True, 0
+            if state["used"] >= limit:
+                return False, state["used"]
+            state["used"] += 1
+            return True, state["used"]
 
-        async def upsert_profile(profile):
-            saved[profile.id] = profile
-            return profile
+        async def refund(user_id, month):
+            state["used"] = max(0, state["used"] - 1)
+            return state["used"]
 
         monkeypatch.setattr(quota.supabase_store, "is_configured", lambda: True)
-        monkeypatch.setattr(quota.supabase_store, "get_profile", get_profile)
-        monkeypatch.setattr(quota.supabase_store, "upsert_profile", upsert_profile)
-        return saved
+        monkeypatch.setattr(quota.supabase_store, "consume_bill_quota", consume)
+        monkeypatch.setattr(quota.supabase_store, "refund_bill_quota", refund)
+        return state
 
-    def test_the_allowance_runs_out(self, store):
+    def test_the_allowance_runs_out(self, db):
         import asyncio
+
         from fastapi import HTTPException
 
         for _ in range(quota.FREE_MONTHLY_BILLS):
-            asyncio.run(quota.consume_bill("user-1"))
+            assert asyncio.run(quota.consume_bill("user-1")) is True
 
         with pytest.raises(HTTPException) as caught:
             asyncio.run(quota.consume_bill("user-1"))
         assert caught.value.status_code == 402
         assert "free_limit_reached" in caught.value.detail
 
-    def test_a_paid_account_is_never_refused(self, store):
+    def test_a_paid_account_is_never_refused(self, db):
         import asyncio
 
-        store["user-1"] = UserProfile(id="user-1", plan="pro")
+        db["plan"] = "pro"
         for _ in range(quota.FREE_MONTHLY_BILLS * 3):
             asyncio.run(quota.consume_bill("user-1"))
-        assert store["user-1"].plan == "pro"
+
+    def test_a_refund_gives_the_bill_back(self, db):
+        """A failed extraction must not cost a fifth of someone's month."""
+        import asyncio
+
+        asyncio.run(quota.consume_bill("user-1"))
+        assert db["used"] == 1
+        asyncio.run(quota.refund_bill("user-1"))
+        assert db["used"] == 0
+
+    def test_a_refund_never_creates_allowance(self, db):
+        import asyncio
+
+        asyncio.run(quota.refund_bill("user-1"))
+        assert db["used"] == 0
+
+    def test_a_failing_refund_never_masks_the_original_error(self, monkeypatch):
+        """The refund runs on an error path; it must not raise its own."""
+        import asyncio
+
+        async def boom(user_id, month):
+            raise RuntimeError("database is down")
+
+        monkeypatch.setattr(quota.supabase_store, "is_configured", lambda: True)
+        monkeypatch.setattr(quota.supabase_store, "refund_bill_quota", boom)
+        asyncio.run(quota.refund_bill("user-1"))  # must not raise
 
     def test_without_a_store_nothing_is_metered_rather_than_refused(self, monkeypatch):
         import asyncio
 
         monkeypatch.setattr(quota.supabase_store, "is_configured", lambda: False)
-        asyncio.run(quota.consume_bill("user-1"))  # must not raise
+        assert asyncio.run(quota.consume_bill("user-1")) is False
 
 
 class TestWebhookSignature:

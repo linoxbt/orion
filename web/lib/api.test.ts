@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   chargeNegotiation,
   completeNegotiation,
-  getHealth,
   getNegotiation,
   ingestBill,
   listNegotiations,
@@ -33,13 +32,6 @@ afterEach(() => {
 });
 
 describe("read endpoints hit the backend directly", () => {
-  it("getHealth", async () => {
-    const fetchMock = mockFetchOnce(200, { ok: true, version: "0.1.0" });
-    const result = await getHealth();
-    expect(result).toEqual({ ok: true, version: "0.1.0" });
-    expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:8080/health");
-  });
-
   it("listPlaybooks", async () => {
     const fetchMock = mockFetchOnce(200, []);
     await listPlaybooks();
@@ -119,7 +111,7 @@ describe("ingestBill", () => {
 describe("error handling", () => {
   it("throws with the backend's detail on a non-2xx response", async () => {
     mockFetchOnce(503, { detail: "gemini_not_configured" });
-    await expect(getHealth()).rejects.toMatchObject({ status: 503, detail: "gemini_not_configured" });
+    await expect(listPlaybooks()).rejects.toMatchObject({ status: 503, detail: "gemini_not_configured" });
   });
 
   it("falls back to a generic detail when the error body is empty/unparseable", async () => {
@@ -131,6 +123,6 @@ describe("error handling", () => {
       },
     });
     vi.stubGlobal("fetch", fetchMock);
-    await expect(getHealth()).rejects.toMatchObject({ status: 500, detail: "request_failed_500" });
+    await expect(listPlaybooks()).rejects.toMatchObject({ status: 500, detail: "request_failed_500" });
   });
 });

@@ -172,7 +172,7 @@ async def ingest_bill(
     # so a file that was never going to work does not cost an allowance, and
     # before the model is called, so it gates the spend rather than reporting
     # it afterwards.
-    await quota.consume_bill(user_id)
+    charged = await quota.consume_bill(user_id)
 
     chain = settings.gemini_model_chain
     response = None
@@ -212,6 +212,8 @@ async def ingest_bill(
                 continue
             # A 400 is the document, not the model - every model will reject it.
             logger.info("Gemini rejected the upload %r: %s", file.filename, exc)
+            if charged:
+                await quota.refund_bill(user_id)
             raise HTTPException(
                 status_code=422,
                 detail="unreadable_document: the file couldn't be read as a bill",
@@ -222,18 +224,28 @@ async def ingest_bill(
         if index == len(chain) - 2:
             await asyncio.sleep(RETRY_DELAY)
 
+    # From here on, every exit that is not a successful extraction hands the
+    # allowance back. A free account has five bills a month, and losing one to
+    # a busy model or a malformed response would be charging someone a fifth of
+    # their month for our failure.
     if response is None:
         logger.error("Every extraction model failed for %r: %s", file.filename, last_error)
+        if charged:
+            await quota.refund_bill(user_id)
         raise HTTPException(
             status_code=503,
             detail="extraction_busy: every extraction model is busy, try again shortly",
         )
 
     if not response.text:
+        if charged:
+            await quota.refund_bill(user_id)
         raise HTTPException(status_code=502, detail="empty_extraction_response")
 
     try:
         return BillExtraction.model_validate_json(response.text)
     except ValueError as exc:
         logger.error("Extraction did not match the schema: %s", exc)
+        if charged:
+            await quota.refund_bill(user_id)
         raise HTTPException(status_code=502, detail="malformed_extraction") from exc

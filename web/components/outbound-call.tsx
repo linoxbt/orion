@@ -6,6 +6,7 @@ import {
   ApiError,
   getCapabilities,
   getNegotiation,
+  hangUpCall,
   placeCall,
   subscribeToNegotiationEvents,
   type NegotiationSession,
@@ -62,6 +63,29 @@ export function OutboundCall({
   const [callState, setCallState] = useState<CallScreenState>("connecting");
   const [note, setNote] = useState<string | null>(null);
   const [agentSpeaking, setAgentSpeaking] = useState(false);
+  const [hangingUp, setHangingUp] = useState(false);
+
+  /** End the call, not just the window.
+   *
+   * Closing the screen used to leave the call running - billing by the minute,
+   * with the agent still talking to the provider and no way to stop it. The
+   * screen closes either way, because a customer who pressed End should not be
+   * held there by a failed request. */
+  async function endCall() {
+    // A double-tap would otherwise fire two hangups; the second races the
+    // first and reports a failure for a call that is already down.
+    if (hangingUp) return;
+    setHangingUp(true);
+    try {
+      const updated = await hangUpCall(session.task_id);
+      onPlaced(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setHangingUp(false);
+      setScreenOpen(false);
+    }
+  }
 
   // Ring only while it is actually ringing.
   useRingback(screenOpen && callState === "ringing");
@@ -147,6 +171,10 @@ export function OutboundCall({
   const attempted = session.status === "failed" || session.status === "completed";
 
   const blockers: string[] = [];
+  // A worked example is not callable at all. Its provider number is real and
+  // its bill is invented, so the panel says so rather than offering a button
+  // the backend will refuse.
+  if (session.is_sample) blockers.push("this is a worked example, not a real bill");
   if (!session.authorized) blockers.push("you haven't authorised Orion to call yet");
   if (hasTwilio === false) blockers.push("no phone line is connected to this deployment");
   if (inProgress) blockers.push("a call is already in progress");
@@ -220,7 +248,14 @@ export function OutboundCall({
         </p>
       )}
 
-      {!canCall && !inProgress && (
+      {session.is_sample && (
+        <p className="mt-4 max-w-prose text-[14px] leading-relaxed text-ink-soft">
+          Examples are here to show what a finished negotiation looks like. Upload one of your own
+          bills to place a real call.
+        </p>
+      )}
+
+      {!canCall && !inProgress && !session.is_sample && (
         <p className="mt-4 max-w-prose text-[13px] leading-relaxed text-ink-soft">
           Not available yet because {blockers.join(", and ")}.
           {hasTwilio === false && (
@@ -246,7 +281,7 @@ export function OutboundCall({
         volume={1}
         onToggleMute={() => {}}
         onCycleVolume={() => {}}
-        onEnd={() => setScreenOpen(false)}
+        onEnd={endCall}
       />
     </section>
   );

@@ -59,8 +59,93 @@ def _headers() -> dict[str, str]:
     }
 
 
+# One plan per (name, amount, currency, interval). Cached so the dashboard is
+# not littered with a new plan on every upgrade.
+_plan_code: str | None = None
+
+PLAN_NAME = "Orion Unlimited"
+
+
+async def ensure_plan(amount: int, currency: str) -> str | None:
+    """The monthly plan a subscription is created against.
+
+    Reused rather than recreated: Paystack keeps every plan ever made, and a
+    fresh one per checkout would make the merchant's dashboard unreadable and
+    the subscriptions impossible to reason about.
+
+    Returns None if the plan cannot be established, in which case the caller
+    falls back to a one-off charge rather than failing the upgrade outright.
+    """
+    global _plan_code
+    if _plan_code:
+        return _plan_code
+    if settings.paystack_plan_code:
+        _plan_code = settings.paystack_plan_code
+        return _plan_code
+
+    want = amount * MINOR_UNITS
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        try:
+            listed = await client.get(
+                f"{API}/plan", headers=_headers(), params={"perPage": 100}
+            )
+            listed.raise_for_status()
+            for plan in (listed.json() or {}).get("data") or []:
+                if (
+                    plan.get("name") == PLAN_NAME
+                    and plan.get("amount") == want
+                    and plan.get("currency") == currency
+                    and plan.get("interval") == "monthly"
+                ):
+                    _plan_code = plan.get("plan_code")
+                    return _plan_code
+
+            created = await client.post(
+                f"{API}/plan",
+                headers=_headers(),
+                json={
+                    "name": PLAN_NAME,
+                    "amount": want,
+                    "currency": currency,
+                    "interval": "monthly",
+                },
+            )
+            created.raise_for_status()
+            _plan_code = ((created.json() or {}).get("data") or {}).get("plan_code")
+            logger.info("Created Paystack plan %s", _plan_code)
+            return _plan_code
+        except Exception as exc:  # noqa: BLE001 - fall back to a one-off charge
+            logger.warning("Could not establish a Paystack plan: %s", exc)
+            return None
+
+
+async def cancel_subscription(subscription_code: str, email_token: str | None = None) -> bool:
+    """Stop a subscription renewing. The customer keeps what they paid for."""
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        if not email_token:
+            fetched = await client.get(
+                f"{API}/subscription/{subscription_code}", headers=_headers()
+            )
+            if fetched.status_code != 200:
+                return False
+            email_token = ((fetched.json() or {}).get("data") or {}).get("email_token")
+
+        res = await client.post(
+            f"{API}/subscription/disable",
+            headers=_headers(),
+            json={"code": subscription_code, "token": email_token},
+        )
+        return res.status_code == 200
+
+
 async def start_upgrade(user_id: str, email: str, amount: int, currency: str) -> dict:
-    """Open a payment and hand back the page to send the customer to."""
+    """Open a payment and hand back the page to send the customer to.
+
+    Attached to a monthly plan, so Paystack creates a subscription on success
+    and charges again each month. Without the plan this was a single charge
+    dressed up as a subscription: it granted thirty days and then lapsed in
+    silence.
+    """
     payload = {
         "email": email,
         "amount": amount * MINOR_UNITS,
@@ -81,6 +166,12 @@ async def start_upgrade(user_id: str, email: str, amount: int, currency: str) ->
         # the page reads reference before trxref.
         "callback_url": f"{settings.public_app_url}/billing",
     }
+    plan_code = await ensure_plan(amount, currency)
+    if plan_code:
+        # With a plan attached Paystack sets up the subscription itself and
+        # ignores the amount, taking it from the plan.
+        payload["plan"] = plan_code
+
     async with httpx.AsyncClient(timeout=20.0) as client:
         res = await client.post(f"{API}/transaction/initialize", headers=_headers(), json=payload)
         res.raise_for_status()

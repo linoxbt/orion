@@ -145,6 +145,24 @@ def _hint_for(exc: TwilioRestException) -> str | None:
     return None
 
 
+def end_call(call_sid: str) -> None:
+    """Hang up a call that is still running.
+
+    Without this the on-screen End button only closed the window: the call
+    carried on, billing by the minute, with the agent still talking to the
+    provider and no way to stop it from the app.
+
+    A call that has already finished answers 400 from Twilio, which is not an
+    error worth surfacing - the caller wanted it ended and it is ended.
+    """
+    try:
+        get_client().calls(call_sid).update(status="completed")
+    except TwilioRestException as exc:
+        if exc.status == 404 or "not in-progress" in (exc.msg or "").lower():
+            return
+        raise CallRejected(exc.msg or str(exc), _hint_for(exc)) from exc
+
+
 # --- Media Stream authentication -------------------------------------------
 #
 # Twilio signs its HTTP webhooks, but it cannot sign a WebSocket upgrade: the

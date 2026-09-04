@@ -10,6 +10,7 @@ import { OutboundCall } from "@/components/outbound-call";
 import {
   ApiError,
   chargeNegotiation,
+  getCapabilities,
   completeNegotiation,
   getNegotiation,
   type NegotiationSession,
@@ -82,6 +83,14 @@ export default function NegotiationStatusPage({ params }: { params: Promise<{ ta
       setSubmitting(false);
     }
   }
+
+  const [hasStripe, setHasStripe] = useState(false);
+
+  useEffect(() => {
+    getCapabilities()
+      .then((h) => setHasStripe(Boolean(h.capabilities.hasStripe)))
+      .catch(() => setHasStripe(false));
+  }, []);
 
   async function handleCharge() {
     setSubmitting(true);
@@ -210,7 +219,11 @@ export default function NegotiationStatusPage({ params }: { params: Promise<{ ta
             </form>
           )}
 
-          {session?.verified && !session.stripe_payment_intent_id && (
+          {/* Only where a card processor is actually connected. This offered a
+              "Charge success fee" button on every verified negotiation, which
+              on a deployment without Stripe - and Stripe does not serve
+              Nigerian merchants - could only ever answer 503. */}
+          {hasStripe && session?.verified && !session.stripe_payment_intent_id && (
             <div className="mt-6 rounded border border-line bg-surface p-6">
               <button
                 type="button"

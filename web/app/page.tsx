@@ -24,7 +24,7 @@ import { Marquee } from "@/components/landing/marquee";
 const STEPS = [
   { n: "01", title: "Send the bill", body: "Photo or PDF. Your rate and plan are read off it." },
   { n: "02", title: "Orion calls", body: "It asks for retention and refuses the first offer." },
-  { n: "03", title: "You keep the difference", body: "Read back off the recording. No saving, no fee." },
+  { n: "03", title: "You keep the difference", body: "The new rate is read back off the recording." },
 ];
 
 const VERTICALS = [
@@ -122,7 +122,7 @@ export default function HomePage() {
               </h1>
               <p className="mt-7 max-w-lg text-[16px] leading-[1.6] text-[var(--l-muted)] sm:text-[17px]">
                 Orion calls your provider and negotiates the rate down. Cable, mobile, medical.
-                You pay a share of what it saves, and nothing if it saves nothing.
+                Five bills a month free. $15 a month for as many as you like.
               </p>
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">

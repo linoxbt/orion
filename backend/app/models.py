@@ -41,6 +41,12 @@ class UserProfile(BaseModel):
     plan_expires_at: str | None = None
     payment_reference: str | None = None
 
+    # The Paystack subscription behind a paid plan. Without these a paid
+    # account was a one-off thirty-day grant that lapsed in silence.
+    subscription_code: str | None = None
+    subscription_status: str | None = None
+    next_payment_at: str | None = None
+
     created_at: str | None = None
     updated_at: str | None = None
 
