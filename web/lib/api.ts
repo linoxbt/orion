@@ -157,7 +157,11 @@ export interface Offer {
 // Events pushed from the backend while a call is live - see
 // backend/app/services/events.py for the publishers.
 export type LiveEvent =
-  | { type: "status"; status: string; backend?: string }
+  | { type: "status"; status: string; backend?: string; reason?: string }
+  // Twilio's own view of the call: ringing, in-progress, completed, busy,
+  // no-answer, failed, canceled. The screen follows this rather than assuming
+  // a call is live because dialling was accepted.
+  | { type: "call_status"; status: string }
   | { type: "turn"; speaker: "orion" | "rep"; text: string }
   | { type: "offer"; monthly_rate: number | null; description: string; accepted: boolean }
   | { type: "confirmation"; confirmation_number: string | null; new_rate: number | null }

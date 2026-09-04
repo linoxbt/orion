@@ -11,16 +11,29 @@ from fastapi import (
 from twilio.twiml.voice_response import Connect, VoiceResponse
 
 from app.config import settings
+from app.models import NegotiationStatus
+from app.services import events
 from app.services.live_bridge import run_bridge
 from app.services.twilio_client import (
     mint_stream_token,
+    status_webhook_url,
     recording_webhook_url,
     validate_signature,
     verify_stream_token,
     voice_webhook_url,
 )
 from app.services.verification import apply_transcript, ingest_recording
-from app.store import get_session
+from app.store import get_session, save_session
+
+# How a call can end, and what to record when it does. "completed" is the only
+# one that means a conversation actually happened.
+_ENDED_STATUSES = {
+    "completed": "",
+    "busy": "The line was busy.",
+    "no-answer": "Nobody answered.",
+    "failed": "The call could not be connected.",
+    "canceled": "The call was cancelled before it connected.",
+}
 
 router = APIRouter(prefix="/telephony", tags=["telephony"])
 
@@ -150,4 +163,62 @@ async def transcript_webhook(
         raise HTTPException(status_code=422, detail="missing_transcript_id")
 
     background.add_task(apply_transcript, session, transcript_id)
+    return {"status": "accepted"}
+
+
+@router.post("/status")
+async def status_webhook(
+    request: Request,
+    taskId: str = Query(...),
+    x_twilio_signature: str | None = Header(default=None),
+) -> dict[str, str]:
+    """Twilio's report on how the call is going.
+
+    This is what the on-screen call was missing entirely. Orion set the status
+    to "calling" the moment the REST call was accepted and never heard another
+    word, so the timer started while the phone was still ringing and the screen
+    stayed live after the far end had hung up.
+
+    CallStatus arrives as one of: queued, initiated, ringing, in-progress,
+    completed, busy, no-answer, failed, canceled.
+    """
+    if not settings.twilio_auth_token:
+        raise HTTPException(status_code=503, detail="twilio_not_configured")
+
+    form = await request.form()
+    params = {key: str(value) for key, value in form.items()}
+    if not x_twilio_signature or not validate_signature(
+        status_webhook_url(taskId), params, x_twilio_signature
+    ):
+        raise HTTPException(status_code=403, detail="invalid_twilio_signature")
+
+    session = await get_session(taskId)
+    if session is None:
+        # Answering 2xx anyway: a retry cannot make a missing session appear,
+        # and Twilio retries anything else.
+        return {"status": "ignored"}
+
+    call_status = params.get("CallStatus", "")
+    events.publish(taskId, {"type": "call_status", "status": call_status})
+
+    if call_status == "in-progress":
+        # Answered. This, not dialling, is when the timer should start.
+        session.status = NegotiationStatus.CALLING
+        await save_session(session)
+    elif call_status in _ENDED_STATUSES:
+        # The call is over however it ended, so the screen must not stay live.
+        if session.status == NegotiationStatus.CALLING:
+            session.status = (
+                NegotiationStatus.COMPLETED
+                if call_status == "completed"
+                else NegotiationStatus.FAILED
+            )
+        if call_status != "completed" and not session.outcome:
+            session.outcome = _ENDED_STATUSES[call_status]
+        await save_session(session)
+        events.publish(
+            taskId,
+            {"type": "status", "status": "call_ended", "reason": call_status},
+        )
+
     return {"status": "accepted"}

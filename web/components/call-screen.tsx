@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Mic, MicOff, PhoneOff, Volume1, Volume2, VolumeX } from "lucide-react";
 
-export type CallScreenState = "idle" | "connecting" | "active" | "ended" | "error";
+export type CallScreenState =
+  | "idle"
+  | "connecting"
+  | "ringing"
+  | "active"
+  | "ended"
+  | "error";
 
 export interface CallScreenProps {
   open: boolean;
@@ -27,12 +33,20 @@ export interface CallScreenProps {
 
 const STATE_LABEL: Record<CallScreenState, string> = {
   idle: "Ready",
-  connecting: "Calling…",
+  connecting: "Connecting…",
+  ringing: "Ringing…",
   active: "",
   ended: "Call ended",
   error: "Call failed",
 };
 
+/** Time since the call was answered.
+ *
+ * `running` must be true only once the far end actually picks up. It used to
+ * be true from the moment dialling was accepted, so the timer counted through
+ * the ringing and told you a call had lasted twenty seconds when nobody had
+ * answered it yet.
+ */
 function useElapsed(running: boolean): string {
   const [seconds, setSeconds] = useState(0);
 
@@ -41,7 +55,14 @@ function useElapsed(running: boolean): string {
       setSeconds(0);
       return;
     }
-    const timer = setInterval(() => setSeconds((s) => s + 1), 1000);
+    // Anchored to a timestamp rather than incremented, so a backgrounded tab
+    // (which throttles timers) does not under-count the call.
+    const startedAt = Date.now();
+    setSeconds(0);
+    const timer = setInterval(
+      () => setSeconds(Math.floor((Date.now() - startedAt) / 1000)),
+      500
+    );
     return () => clearInterval(timer);
   }, [running]);
 
@@ -103,7 +124,8 @@ export function CallScreen({
   detail,
   children,
 }: CallScreenProps) {
-  const live = state === "active" || state === "connecting";
+  // Ringing is a live call too - the avatar should pulse while it rings.
+  const live = state === "active" || state === "connecting" || state === "ringing";
   const elapsed = useElapsed(state === "active");
   const [mounted, setMounted] = useState(false);
 
@@ -173,13 +195,15 @@ export function CallScreen({
           <p className="text-[14px] text-white/60">
             {state === "connecting"
               ? "Connecting"
-              : agentSpeaking
-                ? "Orion is speaking"
-                : state === "active"
-                  ? muted
-                    ? "Muted - they can't hear you"
-                    : "Listening"
-                  : " "}
+              : state === "ringing"
+                ? "Ringing"
+                : agentSpeaking
+                  ? "Orion is speaking"
+                  : state === "active"
+                    ? muted
+                      ? "Muted - they can’t hear you"
+                      : "Listening"
+                    : " "}
           </p>
         </div>
 

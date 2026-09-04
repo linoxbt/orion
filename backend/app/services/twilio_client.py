@@ -48,6 +48,17 @@ def voice_webhook_url(task_id: str) -> str:
     return f"{settings.base_url}/telephony/voice?taskId={task_id}"
 
 
+def status_webhook_url(task_id: str) -> str:
+    """Where Twilio reports the call's progress: ringing, answered, completed.
+
+    Without this Orion never learns what the call is doing. It marked a call
+    "active" the moment the API accepted it, so the on-screen timer began
+    counting while the handset was still ringing, and when the far end hung up
+    the app carried on as though the call were live.
+    """
+    return f"{settings.base_url}/telephony/status?taskId={task_id}"
+
+
 def recording_webhook_url(task_id: str) -> str:
     """The exact URL Twilio is given for a call's recording callback - set on
     the call and validated against on the way back in, same as the voice
@@ -86,6 +97,12 @@ def place_outbound_call(session: NegotiationSession) -> str:
             record=True,
             recording_status_callback=recording_webhook_url(session.task_id),
             recording_status_callback_event=["completed"],
+            # Progress, so the UI reflects the actual call rather than the fact
+            # that dialling was accepted. "answered" is what starts the timer;
+            # "completed" is what ends the screen.
+            status_callback=status_webhook_url(session.task_id),
+            status_callback_event=["initiated", "ringing", "answered", "completed"],
+            status_callback_method="POST",
         )
     except TwilioRestException as exc:
         # Twilio's own message is the most accurate description of what went

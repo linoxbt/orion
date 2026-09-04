@@ -2,8 +2,41 @@
 
 import { useEffect, useState } from "react";
 import { Phone } from "lucide-react";
-import { ApiError, getCapabilities, placeCall, type NegotiationSession } from "@/lib/api";
-import { CallScreen } from "./call-screen";
+import {
+  ApiError,
+  getCapabilities,
+  placeCall,
+  subscribeToNegotiationEvents,
+  type NegotiationSession,
+} from "@/lib/api";
+import { CallScreen, type CallScreenState } from "./call-screen";
+import { useRingback } from "./use-ringback";
+
+/** Twilio's CallStatus, mapped to what the screen should show.
+ *
+ * Only "in-progress" means somebody actually answered, and it is the only one
+ * that starts the timer.
+ */
+const SCREEN_STATE: Record<string, CallScreenState> = {
+  queued: "connecting",
+  initiated: "connecting",
+  ringing: "ringing",
+  "in-progress": "active",
+  completed: "ended",
+  busy: "ended",
+  "no-answer": "ended",
+  canceled: "ended",
+  failed: "error",
+};
+
+const ENDED = new Set(["completed", "busy", "no-answer", "canceled", "failed"]);
+
+const ENDED_NOTE: Record<string, string> = {
+  busy: "The line was busy.",
+  "no-answer": "Nobody answered.",
+  failed: "The call could not be connected.",
+  canceled: "The call was cancelled before it connected.",
+};
 
 /** Placing the real outbound call.
  *
@@ -24,6 +57,38 @@ export function OutboundCall({
   const [calling, setCalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [screenOpen, setScreenOpen] = useState(false);
+  // Driven by Twilio, not by the fact that dialling was accepted.
+  const [callState, setCallState] = useState<CallScreenState>("connecting");
+  const [note, setNote] = useState<string | null>(null);
+
+  // Ring only while it is actually ringing.
+  useRingback(screenOpen && callState === "ringing");
+
+  useEffect(() => {
+    if (!screenOpen) return;
+
+    // The call's own progress arrives on the same stream as the transcript.
+    // Without it the screen had no way to know the far end had hung up, so it
+    // sat there showing a live call that had already ended.
+    const stop = subscribeToNegotiationEvents(session.task_id, (event) => {
+      if (event.type === "call_status") {
+        const next = SCREEN_STATE[event.status];
+        if (next) setCallState(next);
+        if (ENDED.has(event.status)) setNote(ENDED_NOTE[event.status] ?? null);
+      } else if (event.type === "status" && event.status === "call_ended") {
+        setCallState("ended");
+      }
+    });
+    return stop;
+  }, [screenOpen, session.task_id]);
+
+  // Once it is over, close the screen rather than leaving a dead call on top
+  // of the page.
+  useEffect(() => {
+    if (callState !== "ended" && callState !== "error") return;
+    const timer = setTimeout(() => setScreenOpen(false), 2500);
+    return () => clearTimeout(timer);
+  }, [callState]);
 
   useEffect(() => {
     getCapabilities()
@@ -45,6 +110,8 @@ export function OutboundCall({
     try {
       const updated = await placeCall(session.task_id);
       onPlaced(updated);
+      setCallState("connecting");
+      setNote(null);
       setScreenOpen(true);
     } catch (err) {
       const detail = err instanceof ApiError ? err.detail : "";
@@ -109,7 +176,8 @@ export function OutboundCall({
         open={screenOpen}
         contact={session.provider}
         subtitle={session.phone_number}
-        state={session.status === "calling" ? "active" : "connecting"}
+        state={callState}
+        detail={note}
         muted={false}
         volume={1}
         onToggleMute={() => {}}
