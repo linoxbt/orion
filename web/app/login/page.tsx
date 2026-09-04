@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DynamicWidget, useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 import { Wordmark } from "@/components/wordmark";
+import { HeroWatermark } from "@/components/landing/hero-watermark";
 
 const CONFIGURED = Boolean(process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID);
 
@@ -43,21 +44,22 @@ export default function LoginPage() {
   return (
     <div className="grid min-h-screen lg:grid-cols-[1.05fr,0.95fr]">
       {/* Left: the reason to sign in at all. */}
-      <section className="hidden flex-col justify-between border-r border-line bg-surface-2 px-12 py-12 lg:flex xl:px-16">
-        <Link href="/" className="transition-opacity hover:opacity-70">
+      <section className="landing relative isolate hidden flex-col justify-between overflow-hidden border-r border-[var(--l-line)] px-12 py-12 lg:flex xl:px-16">
+        <HeroWatermark />
+        <Link href="/" className="relative z-10 transition-opacity hover:opacity-70">
           <Wordmark className="text-[1.2875rem]" />
         </Link>
 
-        <div className="max-w-md">
-          <h1 className="font-display text-display-sm leading-[1.1] text-ink md:text-[2.6875rem]">
+        <div className="relative z-10 max-w-md">
+          <h1 className="font-display text-display-sm leading-[1.1] text-[var(--l-text)] md:text-[2.6875rem]">
             Your bills, negotiated while you get on with your day.
           </h1>
-          <p className="mt-6 text-[15px] leading-[1.7] text-ink-soft">
+          <p className="mt-6 text-[15px] leading-[1.7] text-[var(--l-muted)]">
           Upload a bill, authorise the call, follow it live.
         </p>
         </div>
 
-        <p className="max-w-md text-[12px] leading-relaxed text-muted">
+        <p className="relative z-10 max-w-md text-[12px] leading-relaxed text-[var(--l-muted)]">
         Orion calls only once you authorise that specific bill, and says it is an AI.
       </p>
       </section>

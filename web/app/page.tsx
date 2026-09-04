@@ -5,6 +5,9 @@ import { Marquee } from "@/components/landing/marquee";
 import { SplashIntro } from "@/components/landing/splash-intro";
 import { HeroWatermark } from "@/components/landing/hero-watermark";
 import { Reveal } from "@/components/landing/reveal";
+import { ScrollSequence } from "@/components/landing/scroll-sequence";
+import { ImageReveal } from "@/components/landing/image-reveal";
+import { REVEAL_IMAGES } from "@/lib/landing-images";
 
 /** The landing page, in the visual language of stacks.co.
  *
@@ -46,6 +49,23 @@ const VERTICALS = [
     title: "Itemise, then reduce",
     body: "Hardship programmes and cash-pay rates move a bill far more than any monthly plan.",
   },
+];
+
+const LIFECYCLE = [
+  { tag: "Upload", title: "Send the bill.", body: "A photo, a PDF, a screenshot. The provider, your rate, the plan and the contract end date come off it." },
+  { tag: "Review", title: "Check what it read.", body: "Every field is editable before anything is dialled. The agent argues from these numbers." },
+  { tag: "Verify", title: "Prove the account is yours.", body: "The last four digits, a PIN, a date of birth. Encrypted, and used only to answer verification on the call." },
+  { tag: "Authorise", title: "Say it may call.", body: "One consent, this company, this account. Never blanket." },
+  { tag: "Listen", title: "Follow it live.", body: "The transcript streams turn by turn while the call is still going." },
+  { tag: "Outcome", title: "Keep the difference.", body: "The result is read back off the recording. No recording, no saving." },
+];
+
+const TOOLS = [
+  { tag: "log_offer", title: "It writes down every offer.", body: "What the representative put on the table, recorded as it is said rather than reconstructed afterwards." },
+  { tag: "press_keys", title: "It gets through the menu.", body: "Synthesised tones, so an automated switchboard is an obstacle rather than a wall." },
+  { tag: "provide_verification", title: "It answers, one field at a time.", body: "A single encrypted detail released only when a representative actually asks for it." },
+  { tag: "record_confirmation_number", title: "It captures the reference.", body: "The number a saving depends on, taken down the moment it is read out." },
+  { tag: "escalate_to_human", title: "It knows when to stop.", body: "Asked something it cannot verify, it messages you while the call is still live." },
 ];
 
 const BEHAVIOUR = [
@@ -206,7 +226,7 @@ export default function HomePage() {
         </section>
 
         {/* Three steps */}
-        <section id="how-it-works" className="depth-blur border-b border-[var(--l-line)]">
+        <section id="how-it-works" className="border-b border-[var(--l-line)]">
           <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:py-24">
             <Reveal>
               <Eyebrow>How it works</Eyebrow>
@@ -254,6 +274,34 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+
+        <ScrollSequence
+          eyebrow="How a negotiation goes"
+          heading="Six steps, and you sit none of them out."
+          items={LIFECYCLE}
+        />
+
+        <ImageReveal
+          eyebrow="The call"
+          title={<>You never have<br />to make it.</>}
+          body="Orion holds through the music, presses the right keys, asks for retention by name, and refuses the first offer."
+          src={REVEAL_IMAGES.call}
+          side="right"
+        />
+
+        <ScrollSequence
+          eyebrow="On the call"
+          heading="Five tools it uses mid-conversation."
+          items={TOOLS}
+        />
+
+        <ImageReveal
+          eyebrow="The bill"
+          title={<>It went up<br />quietly.</>}
+          body="New customers get the lower rate. You get it only by asking, usually from a desk the first agent cannot reach."
+          src={REVEAL_IMAGES.bill}
+          side="left"
+        />
 
         {/* Behaviour */}
         <section className="border-b border-[var(--l-line)]">
@@ -315,6 +363,14 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+
+        <ImageReveal
+          eyebrow="The proof"
+          title={<>Read back off<br />the recording.</>}
+          body="An agent that reports its own success is marking its own homework. The outcome comes from the call itself, and you can listen to it."
+          src={REVEAL_IMAGES.receipt}
+          side="right"
+        />
 
         {/* Close */}
         <section className="border-b border-[var(--l-line)]">

@@ -39,3 +39,10 @@ export const HERO_IMAGES: LandingImage[] = [
     note: "working through the post at a desk",
   },
 ];
+
+/** The three full-width reveals down the page, in order. */
+export const REVEAL_IMAGES = {
+  call: "https://images.unsplash.com/photo-1450101499163-c8848c66ca85",
+  bill: "https://images.unsplash.com/photo-1554224155-6726b3ff858f",
+  receipt: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d",
+} as const;

@@ -29,6 +29,16 @@ export function DynamicProvider({ children }: { children: React.ReactNode }) {
         walletConnectors: [],
         initialAuthenticationMode: "connect-and-sign",
         appName: "Orion",
+        // Sessions persist to localStorage by default in this SDK, so signing
+        // in survives closing the browser and ends only on an explicit sign
+        // out or when the person clears their site data. There is deliberately
+        // no storage or expiry option set here: the SDK exposes neither, and
+        // how long the issued JWT stays valid is a setting on the Dynamic
+        // environment itself rather than something this app can choose.
+        //
+        // A suffix scopes the stored keys to this app, so a session cannot be
+        // confused with another Dynamic app on the same origin.
+        localStorageSuffix: "orion",
       }}
     >
       {children}

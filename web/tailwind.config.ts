@@ -23,8 +23,13 @@ export default {
         fail: "var(--fail)",
       },
       fontFamily: {
-        display: ["var(--font-display)", "Georgia", "serif"],
-        sans: ["var(--font-sans)", "-apple-system", "Segoe UI", "sans-serif"],
+        // One face across the product: the landing page's. `display` and
+        // `sans` both resolve to it so the ~18 files already using
+        // font-display keep working without a sweep, and nothing can
+        // drift back to a second typeface.
+        display: ["var(--font-grotesk)", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["var(--font-grotesk)", "ui-sans-serif", "system-ui", "sans-serif"],
+        grotesk: ["var(--font-grotesk)", "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
       fontSize: {
