@@ -10,6 +10,8 @@ from fastapi import (
 )
 from twilio.twiml.voice_response import Connect, VoiceResponse
 
+import logging
+
 from app.config import settings
 from app.models import NegotiationStatus
 from app.services import events
@@ -34,6 +36,8 @@ _ENDED_STATUSES = {
     "failed": "The call could not be connected.",
     "canceled": "The call was cancelled before it connected.",
 }
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/telephony", tags=["telephony"])
 
@@ -84,14 +88,26 @@ async def media_stream(
     # URL by the (signature-checked) voice webhook is what proves the
     # connection belongs to a real call. Without it, knowing a task id was
     # enough to join a stranger's live call and open a billable session.
+    # Both refusals below close before accepting, which the client sees as a
+    # bare HTTP 403 with no reason attached - and the access log omits the
+    # query string, so a rejected call was indistinguishable from a bad token.
+    # Say which it was.
     if not verify_stream_token(taskId, token):
+        logger.warning(
+            "Media stream refused for %s: %s",
+            taskId,
+            "no token in the stream URL" if not token else "token did not verify",
+        )
         await websocket.close(code=1008, reason="invalid_stream_token")
         return
 
     session = await get_session(taskId)
     if session is None:
+        logger.warning("Media stream refused for %s: no such negotiation", taskId)
         await websocket.close(code=1008, reason="unknown_task_id")
         return
+
+    logger.info("Media stream accepted for %s", taskId)
     await run_bridge(websocket, session)
 
 

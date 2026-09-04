@@ -22,6 +22,7 @@ from google.genai import types
 from app.config import settings
 from app.models import BillExtraction
 from app.security import require_user_id
+from app.services import quota
 from app.services.ratelimit import limit
 from app.services.gemini import GeminiNotConfigured, get_client
 
@@ -164,6 +165,14 @@ async def ingest_bill(
         client = get_client()
     except GeminiNotConfigured as exc:
         raise HTTPException(status_code=503, detail="gemini_not_configured") from exc
+
+    # The free plan's allowance is spent here, because a bill is the unit of
+    # work a customer thinks in and everything downstream - the negotiation and
+    # its calls - follows from one. Counted after the upload has been checked,
+    # so a file that was never going to work does not cost an allowance, and
+    # before the model is called, so it gates the spend rather than reporting
+    # it afterwards.
+    await quota.consume_bill(user_id)
 
     chain = settings.gemini_model_chain
     response = None

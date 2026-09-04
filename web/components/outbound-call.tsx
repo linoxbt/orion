@@ -5,6 +5,7 @@ import { Phone } from "lucide-react";
 import {
   ApiError,
   getCapabilities,
+  getNegotiation,
   placeCall,
   subscribeToNegotiationEvents,
   type NegotiationSession,
@@ -60,6 +61,7 @@ export function OutboundCall({
   // Driven by Twilio, not by the fact that dialling was accepted.
   const [callState, setCallState] = useState<CallScreenState>("connecting");
   const [note, setNote] = useState<string | null>(null);
+  const [agentSpeaking, setAgentSpeaking] = useState(false);
 
   // Ring only while it is actually ringing.
   useRingback(screenOpen && callState === "ringing");
@@ -71,7 +73,13 @@ export function OutboundCall({
     // Without it the screen had no way to know the far end had hung up, so it
     // sat there showing a live call that had already ended.
     const stop = subscribeToNegotiationEvents(session.task_id, (event) => {
-      if (event.type === "call_status") {
+      if (event.type === "speaking") {
+        setAgentSpeaking(event.who === "orion");
+      } else if (event.type === "turn") {
+        // A transcript arrives after the words, so it is a fallback for the
+        // explicit signal rather than the source of truth.
+        setAgentSpeaking(event.speaker === "orion");
+      } else if (event.type === "call_status") {
         const next = SCREEN_STATE[event.status];
         if (next) setCallState(next);
         if (ENDED.has(event.status)) setNote(ENDED_NOTE[event.status] ?? null);
@@ -81,6 +89,41 @@ export function OutboundCall({
     });
     return stop;
   }, [screenOpen, session.task_id]);
+
+  // The authoritative end-of-call signal.
+  //
+  // The event feed is not one. It runs through a serverless function that the
+  // platform cuts well before a phone call is over, so it reconnects
+  // repeatedly mid-call, and a screen that only listens to it can sit showing
+  // a live call long after the far end hung up - which is exactly what
+  // happened. The negotiation's own status is written by Twilio's webhook and
+  // survives any number of dropped streams, so the screen asks for it.
+  useEffect(() => {
+    if (!screenOpen) return;
+    if (callState === "ended" || callState === "error") return;
+
+    let cancelled = false;
+    const poll = setInterval(async () => {
+      try {
+        const current = await getNegotiation(session.task_id);
+        if (cancelled) return;
+        if (current.status === "calling") {
+          // Answered, whatever the feed did or did not deliver.
+          setCallState((s) => (s === "active" ? s : "active"));
+        } else if (current.status !== "pending") {
+          setCallState(current.status === "completed" ? "ended" : "error");
+          onPlaced(current);
+        }
+      } catch {
+        // A failed poll is not evidence the call ended; try again.
+      }
+    }, 3000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(poll);
+    };
+  }, [screenOpen, callState, session.task_id, onPlaced]);
 
   // Once it is over, close the screen rather than leaving a dead call on top
   // of the page.
@@ -96,11 +139,17 @@ export function OutboundCall({
       .catch(() => setHasTwilio(null));
   }, []);
 
-  const alreadyCalled = session.status !== "pending";
+  // A call can be retried as often as needed. The first attempt frequently
+  // reaches nobody - a busy line, no answer, a menu that goes nowhere - and
+  // the remedy for all of those is to call again, which used to be impossible
+  // because the button disabled itself permanently after one attempt.
+  const inProgress = session.status === "calling";
+  const attempted = session.status === "failed" || session.status === "completed";
+
   const blockers: string[] = [];
   if (!session.authorized) blockers.push("you haven't authorised Orion to call yet");
   if (hasTwilio === false) blockers.push("no phone line is connected to this deployment");
-  if (alreadyCalled) blockers.push("this negotiation has already been called");
+  if (inProgress) blockers.push("a call is already in progress");
 
   const canCall = blockers.length === 0;
 
@@ -154,10 +203,24 @@ export function OutboundCall({
         className="mt-6 flex items-center gap-2 rounded bg-accent px-5 py-2.5 text-[13px] font-medium text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-40"
       >
         <Phone size={16} />
-        {calling ? "Dialling…" : alreadyCalled ? "Already called" : "Place the call"}
+        {calling
+          ? "Dialling…"
+          : inProgress
+            ? "Call in progress"
+            : attempted
+              ? "Call again"
+              : "Place the call"}
       </button>
 
-      {!canCall && !alreadyCalled && (
+      {attempted && canCall && (
+        <p className="mt-4 max-w-prose text-[14px] leading-relaxed text-ink-soft">
+          {session.outcome
+            ? `Last attempt: ${session.outcome}`
+            : "This negotiation has been called before. Calling again is fine."}
+        </p>
+      )}
+
+      {!canCall && !inProgress && (
         <p className="mt-4 max-w-prose text-[13px] leading-relaxed text-ink-soft">
           Not available yet because {blockers.join(", and ")}.
           {hasTwilio === false && (
@@ -177,6 +240,7 @@ export function OutboundCall({
         contact={session.provider}
         subtitle={session.phone_number}
         state={callState}
+        agentSpeaking={agentSpeaking}
         detail={note}
         muted={false}
         volume={1}

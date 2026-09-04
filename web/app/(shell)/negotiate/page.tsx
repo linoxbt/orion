@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FadeIn } from "@/components/fade-in";
@@ -21,6 +22,9 @@ export default function NegotiatePage() {
   const [file, setFile] = useState<File | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [extractError, setExtractError] = useState<string | null>(null);
+  // Running out of the monthly allowance is not a failure to explain away -
+  // it has a specific remedy, so it gets its own state and its own link.
+  const [limitReached, setLimitReached] = useState(false);
   const [extraction, setExtraction] = useState<BillExtraction | null>(null);
 
   const [provider, setProvider] = useState("");
@@ -53,6 +57,7 @@ export default function NegotiatePage() {
     if (!file) return;
     setExtracting(true);
     setExtractError(null);
+    setLimitReached(false);
     try {
       const result = await ingestBill(file);
       setExtraction(result);
@@ -73,7 +78,9 @@ export default function NegotiatePage() {
       if (guessed) setVertical(guessed);
     } catch (err) {
       const detail = err instanceof ApiError ? err.detail : "";
-      if (detail === "gemini_not_configured") {
+      if (detail.startsWith("free_limit_reached")) {
+        setLimitReached(true);
+      } else if (detail === "gemini_not_configured") {
         setExtractError(
           "Bill extraction isn't configured on the server yet. Enter the provider name manually below."
         );
@@ -144,6 +151,22 @@ export default function NegotiatePage() {
             >
               {extracting ? "Extracting…" : "Extract bill details"}
             </button>
+            {limitReached && (
+              <div className="mt-4 rounded border border-line bg-surface-2 p-5">
+                <p className="text-[14px] leading-relaxed text-ink">
+                  You have used this month&rsquo;s five bills on the free plan.
+                </p>
+                <p className="mt-2 text-[13px] leading-relaxed text-ink-soft">
+                  The allowance comes back on the 1st, or upgrade for unlimited bills.
+                </p>
+                <Link
+                  href="/billing"
+                  className="mt-4 inline-flex rounded bg-accent px-4 py-2 text-[13px] font-medium text-accent-ink transition-colors hover:bg-accent-hover"
+                >
+                  See plans
+                </Link>
+              </div>
+            )}
             {extractError && <p className="mt-3 text-sm text-partial">{extractError}</p>}
             {extraction && <ExtractionSummary extraction={extraction} />}
           </section>

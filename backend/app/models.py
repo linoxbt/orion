@@ -32,6 +32,15 @@ class UserProfile(BaseModel):
     escalation_whatsapp: str | None = None
     escalation_email: str | None = None
 
+    # Plan and the free tier's monthly allowance. The month is stored next to
+    # the count so the reset is a comparison rather than a scheduled job: a
+    # stored month that is not the current one means the count is stale.
+    plan: str = "free"
+    bills_used: int = 0
+    quota_month: str | None = None
+    plan_expires_at: str | None = None
+    payment_reference: str | None = None
+
     created_at: str | None = None
     updated_at: str | None = None
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PlaybookList } from "@/components/playbook-list";
 
 /** How Orion works, for the person using it.
  *
@@ -61,6 +62,7 @@ const CONTENTS = [
   ["bill-type", "What bill type changes"],
   ["two-ways-to-call", "Rehearsal and the real call"],
   ["authorisation", "Why a call needs authorising"],
+  ["playbooks", "The playbooks it argues from"],
   ["stalls", "When a call needs you"],
   ["verification", "How a saving gets verified"],
   ["after", "Receipts and renewals"],
@@ -202,16 +204,39 @@ export default function DocsPage() {
           </p>
           <p>
             What is stored is the name you typed, the exact wording you agreed to, and the moment
-            you agreed, so what was authorised can be reconstructed later rather than resting on the
-            fact that a box was ticked. Full detail is on the{" "}
-            <Link
-              href="/authorization"
-              className="text-accent underline decoration-transparent underline-offset-4 transition hover:decoration-current"
-            >
-              authorisation page
-            </Link>
-            .
+            you agreed, so what was authorised can be reconstructed later rather than resting on
+            the fact that a box was ticked.
           </p>
+
+          <ul className="flex flex-col gap-3">
+            {[
+              [
+                "What you agree to",
+                "Orion may contact this company as your representative, discuss this account, and record the call. You confirm the account is yours to authorise.",
+              ],
+              [
+                "What gets recorded",
+                "Your name, the exact wording, the moment. A ticked box is not a record.",
+              ],
+              [
+                "On the call itself",
+                "It says it is an AI in its opening line, and always gives a recording notice. Asked something it cannot verify, it hands the call back rather than guessing.",
+              ],
+            ].map(([title, body]) => (
+              <li key={title} className="rounded border border-line bg-surface p-5">
+                <p className="font-display text-[1.1875rem] text-ink">{title}</p>
+                <p className="mt-2 text-[14px] leading-relaxed text-ink-soft">{body}</p>
+              </li>
+            ))}
+          </ul>
+        </Section>
+
+        <Section id="playbooks" label="Strategy" title="The playbooks it argues from">
+          <p>
+            Public retention tactics as a baseline, with a provider-specific playbook where one
+            exists. Which desk to ask for and what tends to work, not proprietary offer tiers.
+          </p>
+          <PlaybookList />
         </Section>
 
         <Section id="stalls" label="Escalation" title="When a call needs you">

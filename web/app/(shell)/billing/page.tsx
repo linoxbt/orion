@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { listNegotiations, type NegotiationSession } from "@/lib/api";
+import { PlanPanel } from "@/components/plan-panel";
 
 function truncate(value: string, head = 8, tail = 4): string {
   if (value.length <= head + tail + 1) return value;
@@ -26,7 +27,13 @@ export default function BillingPage() {
   return (
     <div className="max-w-4xl">
       <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted">Billing</p>
-      <h1 className="mt-4 font-display text-[2.4375rem] leading-none text-ink">Success fees</h1>
+      <h1 className="mt-4 font-display text-[2.4375rem] leading-none text-ink">Plan &amp; billing</h1>
+
+      <div className="mt-8">
+        <PlanPanel />
+      </div>
+
+      <h2 className="mt-14 font-display text-[1.6875rem] leading-none text-ink">Success fees</h2>
       <p className="mt-4 max-w-prose text-[14px] leading-relaxed text-ink-soft">
         A share of verified savings, via Stripe. Never charged before a saving is proven.
       </p>

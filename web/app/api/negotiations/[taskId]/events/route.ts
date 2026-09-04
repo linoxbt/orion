@@ -9,6 +9,12 @@ const API_URL = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http:
 // The body is streamed straight through rather than awaited - buffering it
 // would defeat the point, since the stream only ends when the call does.
 export const dynamic = "force-dynamic";
+// The platform caps a synchronous function well below the length of a phone
+// call, so this stream is cut and re-established repeatedly while a call runs.
+// Asking for the longest allowed makes those cuts rarer; it does not remove
+// them, which is why the call screen also polls the negotiation's own status
+// rather than trusting this feed to deliver the end of the call.
+export const maxDuration = 60;
 
 export async function GET(request: Request, { params }: { params: Promise<{ taskId: string }> }) {
   // The admin key below can place a real phone call and charge a real card, so

@@ -162,6 +162,9 @@ export type LiveEvent =
   // no-answer, failed, canceled. The screen follows this rather than assuming
   // a call is live because dialling was accepted.
   | { type: "call_status"; status: string }
+  // Who holds the floor right now, reported as it happens rather than
+  // inferred from transcripts, which lag the speech they describe.
+  | { type: "speaking"; who: "orion" | "rep" }
   | { type: "turn"; speaker: "orion" | "rep"; text: string }
   | { type: "offer"; monthly_rate: number | null; description: string; accepted: boolean }
   | { type: "confirmation"; confirmation_number: string | null; new_rate: number | null }
@@ -503,4 +506,42 @@ export async function saveProfile(update: ProfileUpdate): Promise<UserProfile> {
     body: JSON.stringify(update),
   });
   return handle<UserProfile>(res);
+}
+
+
+// ---- Plan and billing ------------------------------------------------------
+
+export interface PlanState {
+  plan: "free" | "pro";
+  unlimited: boolean;
+  limit: number | null;
+  used: number;
+  remaining: number | null;
+  month: string;
+  price_usd: number;
+  expires_at: string | null;
+  can_upgrade: boolean;
+}
+
+export async function getPlan(): Promise<PlanState> {
+  const res = await fetch("/api/plan", { headers: authHeaders() });
+  return handle<PlanState>(res);
+}
+
+/** Opens a payment and returns the page to send the customer to. */
+export async function startUpgrade(): Promise<{ authorization_url: string; reference: string }> {
+  const res = await fetch("/api/plan/upgrade", { method: "POST", headers: authHeaders() });
+  return handle<{ authorization_url: string; reference: string }>(res);
+}
+
+/** Checks a payment on the way back from the payment page.
+ *
+ * The reference is verified server-side against Paystack - this call is a
+ * prompt to go and check, not a claim that the payment happened. */
+export async function confirmUpgrade(reference: string): Promise<PlanState> {
+  const res = await fetch(`/api/plan/confirm?reference=${encodeURIComponent(reference)}`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return handle<PlanState>(res);
 }

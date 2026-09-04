@@ -119,6 +119,17 @@ async def call_negotiation(
     if not session.authorized:
         raise HTTPException(status_code=409, detail="not_authorized")
 
+    # A negotiation may be called as many times as it takes. The first attempt
+    # often does not reach anyone: the line is busy, nobody picks up, the menu
+    # routes somewhere useless. Refusing a second attempt left the only real
+    # remedy - try again - unavailable, with the button greyed out and no way
+    # to explain that to the customer.
+    #
+    # The one thing that is refused is a second call while one is still live,
+    # which would put two agents on the same negotiation at once.
+    if session.status == NegotiationStatus.CALLING:
+        raise HTTPException(status_code=409, detail="call_already_in_progress")
+
     try:
         call_sid = place_outbound_call(session)
     except TwilioNotConfigured as exc:

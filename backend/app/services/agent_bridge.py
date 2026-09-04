@@ -49,6 +49,14 @@ class NegotiationRelay(VoiceAgentRelay):
     async def on_ready(self) -> None:
         events.publish(self.session.task_id, {"type": "status", "status": "connected"})
 
+    async def on_speaking(self, speaking: bool) -> None:
+        # Who currently holds the floor, so the call screen can show Orion
+        # rather than the company while Orion is the one talking.
+        events.publish(
+            self.session.task_id,
+            {"type": "speaking", "who": "orion" if speaking else "rep"},
+        )
+
     async def on_transcript(self, speaker: str, text: str) -> None:
         events.publish(
             self.session.task_id,

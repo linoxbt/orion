@@ -10,6 +10,17 @@ class Settings(BaseSettings):
     twilio_auth_token: str = ""
     twilio_phone_number: str = ""
     stripe_secret_key: str = ""
+
+    # Paystack takes the upgrade payment. Stripe does not support Nigerian
+    # merchants, so a Nigerian business cannot hold a Stripe account; Paystack
+    # is Stripe-owned and covers Nigeria, Ghana, Kenya, South Africa and Cote
+    # d'Ivoire.
+    paystack_secret_key: str = ""
+    paystack_currency: str = "NGN"
+    # What the upgrade costs, in whole units of paystack_currency. NGN is the
+    # default because a Nigerian Paystack account settles in naira; set both
+    # together when charging in another currency.
+    pro_price: int = 22500
     base_url: str = "http://localhost:8080"
 
     # CORS: comma-separated list of origins allowed to call this API from a

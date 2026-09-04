@@ -102,6 +102,14 @@ class VoiceAgentRelay:
     async def on_interrupted(self) -> None:
         """Called when the far end talked over this agent."""
 
+    async def on_speaking(self, speaking: bool) -> None:
+        """Called when this agent starts or stops holding the floor.
+
+        Reported as it happens rather than inferred from transcripts, which
+        arrive after the words are spoken - a UI driven by transcripts is
+        always a beat behind the call it is describing.
+        """
+
     # ---- relay ------------------------------------------------------------
 
     async def send_configuration_update(self, update: dict[str, Any]) -> None:
@@ -232,8 +240,11 @@ class VoiceAgentRelay:
                 await self.on_ready()
 
             elif kind == "reply.started":
+                was_speaking = self._agent_speaking.is_set()
                 self._agent_speaking.set()
                 self._agent_quiet.clear()
+                if not was_speaking:
+                    await self.on_speaking(True)
 
             elif kind == "reply.audio":
                 # "data" here, not "audio" - the reverse of input.audio.
@@ -242,8 +253,11 @@ class VoiceAgentRelay:
                 await self._send_media(message["data"])
 
             elif kind == "reply.done":
+                was_speaking = self._agent_speaking.is_set()
                 self._agent_speaking.clear()
                 self._agent_quiet.set()
+                if was_speaking:
+                    await self.on_speaking(False)
                 if message.get("status") == "interrupted":
                     await self._clear_twilio_buffer()
                     self._pending_tool_results.clear()

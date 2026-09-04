@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Mic, MicOff, PhoneOff, Volume1, Volume2, VolumeX } from "lucide-react";
+import { LogoMark } from "./logo-mark";
 
 export type CallScreenState =
   | "idle"
@@ -189,9 +190,22 @@ export function CallScreen({
                 agentSpeaking ? "live-dot bg-white text-black" : "bg-white/10 text-white/70"
               }`}
             >
-              {contact.trim().charAt(0).toUpperCase() || "?"}
+              {/* Whose voice this is, not merely a highlight. The avatar used
+                  to show the company's initial the whole way through and only
+                  change shade, so there was nothing to tell you which of the
+                  two you were listening to. */}
+              {agentSpeaking ? (
+                <LogoMark className="h-10 w-10" />
+              ) : (
+                contact.trim().charAt(0).toUpperCase() || "?"
+              )}
             </span>
           </span>
+          {state === "active" && (
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">
+              {agentSpeaking ? "Orion" : contact}
+            </p>
+          )}
           <p className="text-[14px] text-white/60">
             {state === "connecting"
               ? "Connecting"
