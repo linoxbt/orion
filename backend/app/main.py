@@ -1,3 +1,5 @@
+import logging
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -43,6 +45,18 @@ app.add_middleware(
     allow_origins=settings.allowed_origins_list,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Without this, nothing the application logs below ERROR ever leaves the
+# container. uvicorn configures its own access logger and leaves the root
+# logger alone, so every logger.info and logger.warning in this codebase went
+# nowhere - which is why a Media Stream being refused on every single call
+# looked, in the logs, exactly like a stream that was never attempted.
+logging.basicConfig(
+    level=logging.INFO,
+    stream=sys.stdout,
+    format="%(levelname)s %(name)s: %(message)s",
+    force=True,
 )
 
 app.include_router(health.router)
