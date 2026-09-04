@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect } from "react";
 import Link from "next/link";
+import { Loading } from "@/components/loading";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DynamicWidget, useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 import { Wordmark } from "@/components/wordmark";
@@ -79,13 +80,7 @@ export default function LoginPage() {
           </p>
 
           <div className="mt-9">
-            <Suspense
-              fallback={
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted">
-                  Loading…
-                </p>
-              }
-            >
+            <Suspense fallback={<Loading label="Preparing sign-in" className="py-8" />}>
               <LoginPanel />
             </Suspense>
           </div>

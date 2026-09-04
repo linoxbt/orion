@@ -11,6 +11,7 @@ import { subscribeToNegotiationEvents, type LiveEvent } from "@/lib/api";
 const STATUS_COPY: Record<string, string> = {
   dialing: "Dialing…",
   connected: "Connected",
+  agent_ended: "Orion ended the call",
   call_ended: "Call ended",
   awaiting_recording: "Waiting for the recording",
   transcribing: "Transcribing the call",
@@ -41,7 +42,7 @@ export function LiveCallFeed({ taskId }: { taskId: string }) {
   if (status === null && events.length === 0) return null;
 
   return (
-    <section className="mt-6 rounded border border-line bg-surface p-6">
+    <section className="rounded-lg border border-line bg-surface p-6 sm:p-7">
       <div className="mb-4 flex items-baseline justify-between gap-4">
         <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted">Live call</p>
         <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-accent">

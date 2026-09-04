@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { cancelPlan, confirmUpgrade, getPlan, startUpgrade, type PlanState } from "@/lib/api";
+import { Loading } from "@/components/loading";
 
 /** The plan, what is left of the free allowance, and the way off it.
  *
@@ -60,7 +61,11 @@ export function PlanPanel() {
   if (!plan) {
     return (
       <section className="rounded-lg border border-line bg-surface p-7">
-        <p className="text-[14px] text-muted">{error ?? "Loading your plan…"}</p>
+        {error ? (
+          <p className="text-[14px] text-fail">{error}</p>
+        ) : (
+          <Loading label="Loading your plan" className="py-6" />
+        )}
       </section>
     );
   }

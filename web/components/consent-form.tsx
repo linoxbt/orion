@@ -43,7 +43,7 @@ export function ConsentForm({
   }
 
   return (
-    <section className="mt-6 rounded-lg border border-line bg-surface p-7">
+    <section className="rounded-lg border border-line bg-surface p-6 sm:p-7">
       <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-muted">
         Authorisation
       </p>

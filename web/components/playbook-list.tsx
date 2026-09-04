@@ -1,5 +1,6 @@
 "use client";
 
+import { Loading } from "@/components/loading";
 import { useEffect, useState } from "react";
 import { listPlaybooks, type Playbook } from "@/lib/api";
 
@@ -83,7 +84,7 @@ export function PlaybookList() {
 
       {playbooks === null && !error && (
         <div className="mt-8 rounded border border-line bg-surface px-6 py-10 text-center">
-          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted">Loading…</p>
+          <Loading label="Loading playbooks" />
         </div>
       )}
 

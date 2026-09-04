@@ -112,7 +112,7 @@ export function BrowserCall({ taskId, contact }: { taskId: string; contact: stri
   const live = status === "listening" || status === "speaking" || status === "connecting";
 
   return (
-    <section className="mt-6 rounded-lg border border-line bg-surface p-7">
+    <section className="rounded-lg border border-line bg-surface p-6 sm:p-7">
       <div>
         <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-muted">
           Rehearse the call

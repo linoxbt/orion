@@ -3,6 +3,7 @@ import {
   chargeNegotiation,
   completeNegotiation,
   getNegotiation,
+  getReceipt,
   ingestBill,
   listNegotiations,
   listPlaybooks,
@@ -31,11 +32,22 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("read endpoints hit the backend directly", () => {
+describe("nothing calls the backend's origin from the browser", () => {
+  // Two reads used to go straight to the backend because they need no session.
+  // That made them the only calls whose success depended on this origin being
+  // in the backend's CORS allowlist, and when the app moved to
+  // app.useorion.xyz it was not - the account-type menu came back empty and a
+  // shared receipt would not load. Same-origin, like everything else.
   it("listPlaybooks", async () => {
     const fetchMock = mockFetchOnce(200, []);
     await listPlaybooks();
-    expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:8080/api/playbooks");
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/playbooks");
+  });
+
+  it("getReceipt", async () => {
+    const fetchMock = mockFetchOnce(200, {});
+    await getReceipt("task-1");
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/receipts/task-1");
   });
 });
 

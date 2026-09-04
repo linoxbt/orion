@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Play, Pause, Download } from "lucide-react";
 import { listCalls, type CallRecord } from "@/lib/api";
+import { Loading } from "@/components/loading";
 
 /** Every call on this negotiation, each one playable and downloadable.
  *
@@ -51,13 +52,7 @@ export function CallHistory({ taskId }: { taskId: string }) {
 
   if (error && !calls) return <p className="mt-4 text-[13px] text-fail">{error}</p>;
 
-  if (!calls) {
-    return (
-      <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.2em] text-muted">
-        Loading calls…
-      </p>
-    );
-  }
+  if (!calls) return <Loading label="Loading calls" className="py-8" />;
 
   if (calls.length === 0) {
     return (
@@ -68,54 +63,71 @@ export function CallHistory({ taskId }: { taskId: string }) {
   }
 
   return (
-    <div className="mt-5 overflow-hidden rounded border border-line">
+    <div className="mt-5 overflow-hidden rounded-lg border border-line">
+      {/* A table on a wide screen, stacked rows on a narrow one. The columns
+          are declared once, on the grid, so the header and every row line up
+          without either knowing about the other. */}
+      <div className="hidden grid-cols-[auto_1fr_7rem_5rem_auto] gap-4 border-b border-line bg-surface-2 px-4 py-2.5 font-mono text-[9px] uppercase tracking-[0.2em] text-muted sm:grid">
+        <span className="w-10" aria-hidden />
+        <span>Call</span>
+        <span>Result</span>
+        <span className="text-right">Length</span>
+        <span className="w-9" aria-hidden />
+      </div>
+
       {calls.map((call, i) => {
         const id = call.call_sid ?? call.started_at;
         const isPlaying = playing === id;
         return (
           <div
             key={id}
-            className="flex flex-wrap items-center gap-4 border-b border-line p-4 last:border-b-0"
+            className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2 border-b border-line px-4 py-3.5 last:border-b-0 sm:grid-cols-[auto_1fr_7rem_5rem_auto]"
           >
             <button
               type="button"
               onClick={() => toggle(call)}
               disabled={!call.url}
               aria-label={isPlaying ? "Pause" : "Play this call"}
+              title={call.url ? undefined : "No recording for this attempt"}
               className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-accent text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-30"
             >
               {isPlaying ? <Pause size={15} /> : <Play size={15} className="ml-0.5" />}
             </button>
 
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="min-w-0">
+              <p className="flex flex-wrap items-baseline gap-x-3 text-[13px] text-ink">
                 <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
                   Attempt {calls.length - i}
                 </span>
-                <span className="text-[13px] text-ink">
-                  {new Date(call.started_at).toLocaleString()}
-                </span>
-                <Status call={call} />
-              </div>
+                {new Date(call.started_at).toLocaleString()}
+              </p>
               {call.outcome && (
-                <p className="mt-1.5 text-[13px] leading-relaxed text-ink-soft">{call.outcome}</p>
+                <p className="mt-1 text-[13px] leading-relaxed text-ink-soft">{call.outcome}</p>
               )}
             </div>
 
-            <span className="tabular flex-none font-mono text-[12px] text-muted">
+            {/* On mobile these sit under the call, in the second column, so
+                nothing is squeezed into a strip too narrow to read. */}
+            <div className="col-start-2 flex items-baseline gap-4 sm:col-start-auto sm:block">
+              <Status call={call} />
+            </div>
+
+            <span className="tabular col-start-2 font-mono text-[12px] text-muted sm:col-start-auto sm:text-right">
               {call.duration_seconds != null ? formatDuration(call.duration_seconds) : "—"}
             </span>
 
-            {call.url && (
-              <a
-                href={call.url}
-                download={call.download_name ?? undefined}
-                className="flex h-9 w-9 flex-none items-center justify-center rounded border border-line text-muted transition-colors hover:border-ink hover:text-ink"
-                aria-label="Download this recording"
-              >
-                <Download size={14} />
-              </a>
-            )}
+            <div className="col-start-2 sm:col-start-auto">
+              {call.url && (
+                <a
+                  href={call.url}
+                  download={call.download_name ?? undefined}
+                  className="flex h-9 w-9 items-center justify-center rounded border border-line text-muted transition-colors hover:border-ink hover:text-ink"
+                  aria-label="Download this recording"
+                >
+                  <Download size={14} />
+                </a>
+              )}
+            </div>
           </div>
         );
       })}

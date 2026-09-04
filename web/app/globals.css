@@ -233,3 +233,19 @@ select:focus-visible,
   .animate-slow-spin { animation: none; opacity: 1; filter: none; transform: none; }
 }
 
+
+/* The loading state, matching the landing page's opening beat: the mark
+   settling rather than a word in grey. Deliberately slow - a fast pulse reads
+   as urgency, and this is just waiting. */
+@keyframes orion-breathe {
+  0%, 100% { opacity: 0.35; transform: scale(0.94); }
+  50%      { opacity: 1;    transform: scale(1); }
+}
+
+.loading-mark {
+  animation: orion-breathe 1.9s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-mark { animation: none; opacity: 1; }
+}

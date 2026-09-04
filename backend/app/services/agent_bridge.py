@@ -6,6 +6,7 @@ is just the negotiation-specific configuration and the hooks that write what
 happens onto the session. The relay itself is app/services/voice_agent.py.
 """
 
+import asyncio
 import logging
 from typing import Any
 
@@ -19,6 +20,11 @@ from app.services.voice_agent import PCMU, VoiceAgentRelay
 from app.store import save_session
 
 logger = logging.getLogger(__name__)
+
+# How long to let a closing line run before hanging up regardless, and the
+# margin afterwards that covers audio still buffered at Twilio.
+GOODBYE_PATIENCE = 20.0
+GOODBYE_TAIL = 1.5
 
 
 class NegotiationRelay(VoiceAgentRelay):
@@ -80,10 +86,44 @@ class NegotiationRelay(VoiceAgentRelay):
         )
 
     async def on_tool_call(self, name: str, arguments: dict[str, Any]) -> str:
-        # press_keys needs to put audio on the call, not just record something.
+        # press_keys needs to put audio on the call, not just record something,
+        # and end_call needs to actually hang it up rather than leaving the
+        # agent sitting silently on an open, billing line.
         return await call_tools.dispatch(
-            self.session, name, arguments, audio_sink=self.send_audio
+            self.session,
+            name,
+            arguments,
+            audio_sink=self.send_audio,
+            on_end_call=self.finish,
         )
+
+    async def finish(self) -> None:
+        """Hang up once the agent has finished saying goodbye.
+
+        Returning from the tool call is not the end of the turn: the closing
+        line is still being spoken. Tearing the stream down here would cut it
+        off mid-syllable, and the goodbye is the part of the call the other
+        person remembers. So this hands off to a background task and lets the
+        tool result go back immediately - blocking inside the handler would
+        stall every other message on the socket for the same three seconds.
+        """
+        asyncio.create_task(self._hang_up_after_goodbye())
+
+    async def _hang_up_after_goodbye(self) -> None:
+        # A beat before listening for quiet: between turns the agent is already
+        # quiet, and the tool result ("say nothing further") may still prompt
+        # one last line. Checking immediately would cut that line off.
+        await asyncio.sleep(GOODBYE_TAIL)
+        try:
+            await asyncio.wait_for(self._agent_quiet.wait(), timeout=GOODBYE_PATIENCE)
+        except asyncio.TimeoutError:
+            logger.info("[%s] Goodbye ran long; hanging up anyway", self.label)
+        else:
+            # The audio is queued at Twilio ahead of being played, so quiet on
+            # this side is slightly early. A beat of margin costs nothing.
+            await asyncio.sleep(GOODBYE_TAIL)
+        logger.info("[%s] Agent ended the call", self.label)
+        self._give_up.set()
 
 
 def session_update(session: NegotiationSession) -> dict[str, Any]:

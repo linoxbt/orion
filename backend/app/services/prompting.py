@@ -198,6 +198,17 @@ def system_instruction(session: NegotiationSession) -> str:
         "something you genuinely cannot provide, call escalate_to_human rather "
         "than continuing to push."
     )
+
+    # Nobody else is going to hang up. The customer is not on this call, and
+    # the line stays open - and billing - until this side ends it.
+    base += (
+        " You are responsible for ending the call. When the conversation is "
+        "genuinely finished - the change is agreed and read back, or you have "
+        "been refused and have nothing left to ask - thank them, say goodbye, "
+        "and then call end_call with one sentence saying how it ended. Do not "
+        "stay silently on an open line, and do not end a call you could still "
+        "push on."
+    )
     return base
 
 

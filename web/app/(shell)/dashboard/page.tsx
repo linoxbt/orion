@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Loading } from "@/components/loading";
 import { useEffect, useState } from "react";
 import {
   isAuthError,
@@ -87,11 +88,7 @@ export default function DashboardPage() {
         </Link>
       </header>
 
-      {items === null && !error && (
-        <p className="py-16 text-center font-mono text-[10px] uppercase tracking-[0.22em] text-muted">
-          Loading…
-        </p>
-      )}
+      {items === null && !error && <Loading label="Loading negotiations" />}
 
       {error && (
         <div className="mt-10 rounded border border-line bg-surface px-7 py-8">

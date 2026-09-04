@@ -1,4 +1,11 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+/**
+ * Everything the browser calls goes through this app's own /api routes, which
+ * hold the admin key and verify the session server-side. Nothing here talks to
+ * the backend's origin directly: a cross-origin call from the browser depends
+ * on that origin sitting in the backend's CORS allowlist, and when the app
+ * moved to app.useorion.xyz it did not - the two calls that still went direct
+ * failed silently in production.
+ */
 
 export interface HealthCapabilities {
   hasAssemblyAI: boolean;
@@ -236,7 +243,7 @@ export async function ingestBill(file: File): Promise<BillExtraction> {
 }
 
 export async function listPlaybooks(): Promise<Playbook[]> {
-  const res = await fetch(`${API_URL}/api/playbooks`);
+  const res = await fetch(`/api/playbooks`);
   return handle<Playbook[]>(res);
 }
 
@@ -532,7 +539,7 @@ export async function listRenewals(): Promise<Renewal[]> {
 /** A shareable record of a verified saving. Public by design and deliberately
  * thin - no phone number, no account details, no transcript. */
 export async function getReceipt(taskId: string): Promise<Receipt> {
-  const res = await fetch(`${API_URL}/api/receipts/${taskId}`);
+  const res = await fetch(`/api/receipts/${taskId}`);
   return handle<Receipt>(res);
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Loading } from "@/components/loading";
 import { usePathname, useRouter } from "next/navigation";
 import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 
@@ -16,6 +17,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const isLoggedIn = useIsLoggedIn();
   const { sdkHasLoaded } = useDynamicContext();
   const router = useRouter();
+  const [stalled, setStalled] = useState(false);
+
+  useEffect(() => {
+    if (sdkHasLoaded) return;
+    const timer = window.setTimeout(() => setStalled(true), 9000);
+    return () => window.clearTimeout(timer);
+  }, [sdkHasLoaded]);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -29,11 +37,31 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }, [sdkHasLoaded, isLoggedIn, router, pathname]);
 
   if (!sdkHasLoaded || !isLoggedIn) {
+    // A gate that waits forever looks identical to a broken page. If the SDK
+    // has not started after a few seconds it is not going to, and saying so
+    // with a way out beats an animation that never resolves.
+    if (stalled && !sdkHasLoaded) {
+      return (
+        <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-6 text-center">
+          <p className="text-[15px] text-ink">Sign-in did not start.</p>
+          <p className="max-w-sm text-[14px] leading-relaxed text-ink-soft">
+            This usually clears on a reload. If it keeps happening, a browser
+            extension blocking third-party scripts is the usual cause.
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-2 rounded bg-accent px-5 py-2.5 text-[14px] font-medium text-accent-ink transition-colors hover:bg-accent-hover"
+          >
+            Reload
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted">
-          {sdkHasLoaded ? "Redirecting…" : "Loading…"}
-        </p>
+        <Loading label={sdkHasLoaded ? "Redirecting" : "Starting"} />
       </div>
     );
   }

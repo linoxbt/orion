@@ -1,5 +1,6 @@
 "use client";
 
+import { Loading } from "@/components/loading";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { listNegotiations, type NegotiationSession } from "@/lib/api";
@@ -46,7 +47,7 @@ export default function BillingPage() {
 
       {items === null && !error && (
         <div className="mt-8 rounded border border-line bg-surface px-6 py-10 text-center">
-          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted">Loading…</p>
+          <Loading />
         </div>
       )}
 

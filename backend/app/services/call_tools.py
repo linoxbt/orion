@@ -25,6 +25,32 @@ logger = logging.getLogger(__name__)
 TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "type": "function",
+        "name": "end_call",
+        "description": (
+            "End the call. Use this once the conversation is genuinely finished: "
+            "the change is agreed and you have read back the confirmation, the "
+            "representative has firmly refused and there is nothing further to "
+            "ask, or you have been told to call another department or another "
+            "time. Say goodbye first, then call this. Do not use it to escape a "
+            "difficult moment - a refusal you have not yet countered is not the "
+            "end of a call."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string",
+                    "description": (
+                        "One short sentence on why the call is over, for the "
+                        "customer's record."
+                    ),
+                },
+            },
+            "required": ["reason"],
+        },
+    },
+    {
+        "type": "function",
         "name": "log_offer",
         "description": (
             "Record a concrete offer the representative has made. Call this every "
@@ -150,8 +176,13 @@ async def dispatch(
     arguments: dict[str, Any],
     *,
     audio_sink: AudioSink | None = None,
+    on_end_call: Callable[[], Awaitable[None]] | None = None,
 ) -> str:
     """Runs one tool call and returns the string result to hand back to the agent.
+
+    `on_end_call` hangs up the live call; end_call needs it, and where it is
+    absent - the browser rehearsal - the tool still records the outcome and the
+    session simply closes normally.
 
     `audio_sink` puts raw mu-law onto the live call; press_keys needs it and the
     other tools ignore it. Unknown tool names return an error string rather than
@@ -215,6 +246,21 @@ async def dispatch(
              "new_rate": session.new_rate},
         )
         return f"Confirmation number {session.confirmation_number} recorded."
+
+    if name == "end_call":
+        # The agent finishing its business and then sitting on an open line is
+        # a bill running and a person waiting for it to go away. Ending is the
+        # polite thing and the cheap thing.
+        reason = str(arguments.get("reason", "")).strip()
+        session.outcome = session.outcome or reason or "The call ended."
+        await save_session(session)
+        logger.info("[%s] Agent ended the call: %s", session.task_id, reason or "no reason given")
+        events.publish(
+            session.task_id, {"type": "status", "status": "agent_ended", "reason": reason}
+        )
+        if on_end_call is not None:
+            await on_end_call()
+        return "The call is ending. Say nothing further."
 
     if name == "escalate_to_human":
         session.escalated = True

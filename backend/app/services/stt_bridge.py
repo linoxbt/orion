@@ -43,6 +43,11 @@ CHUNK_BYTES = SAMPLE_RATE * CHUNK_MS // 1000
 TWILIO_FRAME_BYTES = SAMPLE_RATE * 20 // 1000
 MAX_TOOL_ROUNDS = 3
 
+# How long a closing line may run before the call is cut regardless, and the
+# margin afterwards covering audio still buffered at Twilio.
+GOODBYE_PATIENCE = 20.0
+GOODBYE_TAIL = 1.5
+
 
 def _streaming_url(session: NegotiationSession) -> str:
     params = {
@@ -67,6 +72,7 @@ async def run_stt_bridge(websocket: WebSocket, session: NegotiationSession) -> N
     stream_sid: str | None = None
     inbound_buffer = bytearray()
     playback: asyncio.Task | None = None
+    hang_up = asyncio.Event()
     history: list[dict[str, Any]] = [
         {"role": "system", "content": prompting.system_instruction(session)}
     ]
@@ -106,6 +112,11 @@ async def run_stt_bridge(websocket: WebSocket, session: NegotiationSession) -> N
                 json.dumps({"type": "UpdateConfiguration", "agent_context": text[:1500]})
             )
 
+        async def end_call() -> None:
+            """The agent asked to hang up. Flag it; the closing line is still
+            being spoken, and wait_for_hangup is what waits for it."""
+            hang_up.set()
+
         async def respond(rep_said: str) -> None:
             history.append({"role": "user", "content": rep_said})
             reply = await negotiation_llm.complete(history, call_tools.TOOL_DEFINITIONS)
@@ -115,7 +126,11 @@ async def run_stt_bridge(websocket: WebSocket, session: NegotiationSession) -> N
                 history.append(negotiation_llm.assistant_message(reply))
                 for call in reply.tool_calls:
                     result = await call_tools.dispatch(
-                        session, call.name, call.arguments, audio_sink=send_to_twilio
+                        session,
+                        call.name,
+                        call.arguments,
+                        audio_sink=send_to_twilio,
+                        on_end_call=end_call,
                     )
                     history.append(
                         {
@@ -187,10 +202,31 @@ async def run_stt_bridge(websocket: WebSocket, session: NegotiationSession) -> N
                 elif kind == "Termination":
                     break
 
+        async def wait_for_hangup() -> None:
+            await hang_up.wait()
+            # end_call fires from inside the turn that is still being spoken,
+            # and <Connect> is terminal: Twilio ends the call the instant this
+            # socket closes. So let the goodbye finish playing first.
+            if playback is not None and not playback.done():
+                try:
+                    await asyncio.wait_for(asyncio.shield(playback), timeout=GOODBYE_PATIENCE)
+                except (asyncio.TimeoutError, asyncio.CancelledError):
+                    pass
+            # Audio sits queued at Twilio ahead of being heard, so silence on
+            # this side is slightly early.
+            await asyncio.sleep(GOODBYE_TAIL)
+            logger.info("Agent ended the call for %s", session.task_id)
+
+        pumps = asyncio.gather(pump_twilio_to_stt(), pump_stt_to_agent())
+        ended = asyncio.create_task(wait_for_hangup())
         try:
-            await asyncio.gather(pump_twilio_to_stt(), pump_stt_to_agent())
+            await asyncio.wait({pumps, ended}, return_when=asyncio.FIRST_COMPLETED)
+            if pumps.done():
+                pumps.result()
         except (WebSocketDisconnect, ConnectionClosed):
             pass
         finally:
+            ended.cancel()
+            pumps.cancel()
             if playback is not None and not playback.done():
                 playback.cancel()
