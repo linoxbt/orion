@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import { Loading } from "@/components/loading";
 import { Wordmark } from "@/components/wordmark";
 import { getReceipt, type Receipt } from "@/lib/api";
 
@@ -42,6 +43,8 @@ export default function ReceiptPage({ params }: { params: Promise<{ taskId: stri
 
       <main className="mx-auto max-w-3xl px-6 py-20">
         {error && <p className="text-[14px] leading-relaxed text-ink-soft">{error}</p>}
+
+        {!receipt && !error && <Loading label="Opening receipt" />}
 
         {receipt && (
           <>
