@@ -28,6 +28,8 @@ the post-call verification pass.
 - [Project layout](#project-layout)
 - [Current status](#current-status)
 
+Submitting it? **[SUBMISSION.md](SUBMISSION.md)** has the copy, tags and video script.
+
 Setting it up? **[REQUIREMENTS.md](REQUIREMENTS.md)** lists every key, what it unlocks, and step by step how to get it.
 
 ---
