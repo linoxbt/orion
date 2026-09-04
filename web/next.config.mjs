@@ -1,5 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  images: {
+    // Real, properly-licensed photography (Unsplash License: free commercial
+    // use, no attribution required) for the landing page's rotating hero
+    // watermark - bills, statements and the paperwork this product is about.
+    remotePatterns: [{ hostname: "images.unsplash.com" }],
+  },
+
   /** Routes that moved into the docs.
    *
    * Declared here rather than as a page calling redirect(), because a page

@@ -210,3 +210,59 @@ select:focus-visible,
 .landing details > summary::-webkit-details-marker {
   display: none;
 }
+
+/* ---------------------------------------------------------------------------
+   Landing motion.
+
+   Three distinct beats rather than one shared fade, so the page reads as
+   choreographed rather than merely animated: the mark enters blurred and
+   rotated and settles; content rises into focus; the watermark behind it
+   turns one image away as the next arrives.
+
+   Everything here is decorative. The global prefers-reduced-motion rule at
+   the top of this file already collapses durations, and the components that
+   loop also check the media query in JS so they stop entirely rather than
+   cycling instantly.
+--------------------------------------------------------------------------- */
+
+@keyframes orion-fade-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-rise { animation: orion-fade-rise 460ms cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+/* A restrained blur-to-focus for editorial headings. */
+@keyframes orion-reveal {
+  from { opacity: 0; filter: blur(9px); transform: translateY(14px); }
+  to   { opacity: 1; filter: blur(0); transform: translateY(0); }
+}
+.animate-reveal { animation: orion-reveal 900ms cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+/* The splash mark: a deliberate entrance, and a distinct exit that leaves
+   before the backdrop does. */
+@keyframes orion-mark-in {
+  from { opacity: 0; filter: blur(22px); transform: scale(0.6) rotate(-10deg); }
+  to   { opacity: 1; filter: blur(0); transform: scale(1) rotate(0deg); }
+}
+.animate-mark-in { animation: orion-mark-in 1150ms cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+@keyframes orion-mark-out {
+  from { opacity: 1; filter: blur(0); transform: scale(1) rotate(0deg); }
+  to   { opacity: 0; filter: blur(14px); transform: scale(1.22) rotate(5deg); }
+}
+.animate-mark-out { animation: orion-mark-out 620ms cubic-bezier(0.55, 0, 1, 0.45) forwards; }
+
+/* A very slow turn, so a mark reads as quietly alive rather than static. */
+@keyframes orion-slow-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.animate-slow-spin { animation: orion-slow-spin 110s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-rise,
+  .animate-reveal,
+  .animate-mark-in,
+  .animate-mark-out,
+  .animate-slow-spin { animation: none; opacity: 1; filter: none; transform: none; }
+}

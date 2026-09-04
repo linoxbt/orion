@@ -2,6 +2,8 @@ import Link from "next/link";
 import { LogoMark } from "@/components/logo-mark";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { Marquee } from "@/components/landing/marquee";
+import { SplashIntro } from "@/components/landing/splash-intro";
+import { HeroWatermark } from "@/components/landing/hero-watermark";
 
 /** The landing page, in the visual language of stacks.co.
  *
@@ -95,6 +97,8 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 export default function HomePage() {
   return (
     <div className="landing font-grotesk">
+      <SplashIntro />
+
       {/* Announcement bar. A real capability, not a slogan. */}
       <div className="border-b border-[var(--l-line)] bg-[var(--l-surface)]">
         <Link
@@ -111,9 +115,10 @@ export default function HomePage() {
 
       <main>
         {/* Hero */}
-        <section className="border-b border-[var(--l-line)]">
-          <div className="mx-auto grid max-w-7xl gap-14 px-5 py-20 sm:px-8 lg:grid-cols-[1.05fr,0.95fr] lg:items-center lg:gap-16 lg:py-28">
-            <div>
+        <section className="relative isolate border-b border-[var(--l-line)]">
+          <HeroWatermark />
+          <div className="relative z-10 mx-auto grid max-w-7xl gap-14 px-5 py-20 sm:px-8 lg:grid-cols-[1.05fr,0.95fr] lg:items-center lg:gap-16 lg:py-28">
+            <div className="animate-reveal">
               <Eyebrow>AI bill negotiation</Eyebrow>
               <h1 className="mt-6 text-[2.6rem] font-medium leading-[1.03] tracking-[-0.03em] text-[var(--l-text)] sm:text-[3.6rem] lg:text-[4.4rem]">
                 Stop overpaying
@@ -142,7 +147,10 @@ export default function HomePage() {
             </div>
 
             {/* A transcript, because that is what the product actually produces. */}
-            <div className="rounded-2xl border border-[var(--l-line)] bg-[var(--l-surface)] p-6 sm:p-8">
+            <div
+              className="animate-reveal rounded-2xl border border-[var(--l-line)] bg-[var(--l-surface)]/90 p-6 backdrop-blur-sm sm:p-8"
+              style={{ animationDelay: "220ms", animationFillMode: "backwards" }}
+            >
               <div className="flex items-center justify-between border-b border-[var(--l-line)] pb-4">
                 <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--l-muted)]">
                   Live transcript
