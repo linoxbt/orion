@@ -16,6 +16,12 @@ const ENVIRONMENT_ID = process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID ?? "";
  * happens server-side, where lib/auth.ts verifies the signed JWT against
  * Dynamic's JWKS before any privileged route runs. */
 export function DynamicProvider({ children }: { children: React.ReactNode }) {
+  // Not guarded on a missing ENVIRONMENT_ID. Skipping the provider only moves
+  // the failure: every signed-in page calls Dynamic's hooks, which throw
+  // "Store not initialized" without it. An unconfigured deployment cannot
+  // render an authenticated app at all, so failing the build is the honest
+  // outcome. The environment id is public, so CI supplies it directly
+  // (.github/workflows/ci.yml) rather than treating it as a secret.
   return (
     <DynamicContextProvider
       settings={{

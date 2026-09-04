@@ -34,4 +34,12 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run lint
+      # The build prerenders pages that sit inside the Dynamic provider, so it
+      # needs the environment id. It is public by design - it identifies the
+      # project to Dynamic's hosted widget and authorizes nothing, and it
+      # already ships inside the browser bundle - so it belongs here rather
+      # than in a secret. The API URL keeps prerendering deterministic.
       - run: npm run build
+        env:
+          NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID: f3e8d79d-80c3-4332-b740-39c22eef6428
+          NEXT_PUBLIC_API_URL: https://backend-production-cf6d9.up.railway.app
