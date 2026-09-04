@@ -363,6 +363,12 @@ class TestSilencePolicy:
 
         async def run():
             relay = Relay()
+            # The prompt ladder only applies once somebody has actually
+            # spoken. Before that the watcher is waiting to be put through,
+            # which is a different regime with its own (much longer) budget -
+            # see test_hold_patience.py.
+            relay._heard_something.set()
+
             # Shrink the waits so the test doesn't sit for 30 seconds.
             import app.services.voice_agent as va
 

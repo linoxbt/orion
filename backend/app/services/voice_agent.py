@@ -32,8 +32,22 @@ logger = logging.getLogger(__name__)
 # Twilio's native wire format, byte-compatible with the Voice Agent API's.
 PCMU = {"encoding": "audio/pcmu"}
 
+# How long to wait before concluding that nobody is ever going to speak.
+#
+# Reaching a retention desk means a queue: ringing, an IVR menu, then hold
+# music, for minutes. None of that is speech, so none of it produces a
+# transcript, and treating it as silence is how the agent came to hang up 53
+# seconds into a real call that was progressing perfectly normally. A person
+# waiting to be put through does not give up after a minute, and neither
+# should this.
+HOLD_PATIENCE_SECONDS = 420.0
+
 # What a person does when the line goes quiet: check, try once more, then go.
 # Seconds to wait, and what to say when the wait runs out.
+#
+# These apply only AFTER somebody has actually spoken. Before that, the
+# silence is a queue rather than an unresponsive human, and asking hold music
+# whether it is still there is pointless.
 SILENCE_PROMPTS: tuple[tuple[float, str], ...] = (
     (
         12.0,
@@ -132,11 +146,37 @@ class VoiceAgentRelay:
         await self._agent.send(json.dumps(payload))
 
     async def _watch_for_silence(self) -> None:
-        """Check in, try once more, then say goodbye and hang up.
+        """Wait to reach a person, then watch for that person going quiet.
 
-        Idle time on an open session is billable, so an unanswered call has to
-        end rather than sit there costing money.
+        Two regimes, because the same silence means two different things.
+
+        Before anyone has spoken, this call is in a queue - ringing, an IVR,
+        hold music - and the only sane response is to wait. Prompting into hold
+        music accomplishes nothing, and hanging up guarantees never reaching
+        the retention desk that is the entire point of the call.
+
+        Once somebody has spoken, silence means a person stopped talking, and
+        the ladder below is what a person would do about it.
+
+        Idle time on an open session is billable, so the wait is bounded rather
+        than indefinite.
         """
+        if not self._heard_something.is_set():
+            logger.info("[%s] On the line, waiting to reach a person", self.label)
+            try:
+                await asyncio.wait_for(
+                    self._heard_something.wait(), timeout=HOLD_PATIENCE_SECONDS
+                )
+            except asyncio.TimeoutError:
+                logger.info(
+                    "[%s] Nobody spoke in %.0f seconds; ending the call",
+                    self.label,
+                    HOLD_PATIENCE_SECONDS,
+                )
+                self._give_up.set()
+                return
+            self._heard_something.clear()
+
         stage = 0
         while stage < len(SILENCE_PROMPTS):
             delay, instructions = SILENCE_PROMPTS[stage]
@@ -146,6 +186,13 @@ class VoiceAgentRelay:
             try:
                 await asyncio.wait_for(self._heard_something.wait(), timeout=delay)
             except asyncio.TimeoutError:
+                logger.info(
+                    "[%s] %.0fs without a reply; checking in (%d of %d)",
+                    self.label,
+                    delay,
+                    stage + 1,
+                    len(SILENCE_PROMPTS),
+                )
                 await self.prompt_reply(instructions)
                 stage += 1
                 continue
@@ -268,6 +315,10 @@ class VoiceAgentRelay:
 
             elif kind == "transcript.user":
                 if text := (message.get("transcript") or "").strip():
+                    # Logged because a call that hangs up on its own is
+                    # impossible to diagnose without knowing whether the agent
+                    # was hearing anything at all.
+                    logger.info("[%s] Heard: %s", self.label, text[:90])
                     self._heard_something.set()
                     await self.on_transcript("them", text)
 
