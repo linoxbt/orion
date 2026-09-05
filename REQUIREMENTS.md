@@ -218,31 +218,54 @@ URL it supplied.
 
 ## Optional: escalation channels
 
-These carry the message. **Who receives it is set per user on the Account
-page**, not here.
+When a representative asks something Orion cannot answer, it stops and tells
+you - while the call is still live, which is the only moment the information is
+worth anything. These carry that message. **Who receives it is set per user on
+the Account page**, not here.
 
-### WhatsApp, through Twilio
+All three are optional and they are tried in this order.
+
+### 1. SMS, on the number you already have
+
+Nothing to sign up for. The text goes out from `TWILIO_PHONE_NUMBER` - the same
+number that places the calls - so if Orion can call, it can text.
+
+It is tried first for a reason: it has no session window and needs no template
+approval, so it arrives whether or not you were already in a conversation with
+us, which is exactly the situation an escalation happens in.
+
+Cost is per message: roughly $0.008 to a US number, a few cents elsewhere.
+Nothing else to set - though `ESCALATION_SMS_TO` exists as a fallback for a
+single-user or local deployment with no profiles.
+
+### 2. WhatsApp, through Twilio
 
 Needs the Twilio credentials above.
 
 1. In the console: **Messaging → Try it out → Send a WhatsApp message**.
-2. Follow the sandbox join step, or request a production WhatsApp sender.
-3. Set `TWILIO_WHATSAPP_FROM` to that number in E.164 form. Orion adds the
-   `whatsapp:` prefix itself.
+2. Join the **sandbox** from your own phone - it takes a minute, needs no Meta
+   Business verification and costs nothing. A production sender is free to
+   register too, but needs verification through Meta Business Manager.
+3. Set `TWILIO_WHATSAPP_FROM` to the sender. The console shows the sandbox one
+   as `whatsapp:+14155238886`; paste it with or without the prefix.
 
-The Twilio trial includes 100 free WhatsApp messages.
+**The sandbox has a 24-hour window.** Free-form messages are only delivered
+within 24 hours of your last message *to* the sandbox number. An escalation
+usually arrives outside that window, which is why this is a good second channel
+and a poor only one.
 
-### Email, through SendGrid
+### 3. Email, through Resend
 
-1. Create an account at [sendgrid.com](https://signup.sendgrid.com).
-2. **Settings → Sender Authentication** and verify a single sender address.
-   Unverified senders are rejected.
-3. **Settings → API Keys → Create API Key**, choose **Restricted Access** with
-   **Mail Send** permission only.
-4. `SENDGRID_API_KEY` is the key. `ESCALATION_EMAIL_FROM` is the verified
-   sender.
+Not SendGrid: its hundred-a-day free tier was retired on 27 May 2025, and the
+same job now costs $19.95 a month once a sixty-day trial ends. Resend gives
+3,000 emails a month free, permanently.
 
-Free tier is 100 emails a day.
+1. Create an account at [resend.com](https://resend.com).
+2. **API Keys → Create API Key**, with **Sending access**.
+3. `RESEND_API_KEY` is the key.
+4. `ESCALATION_EMAIL_FROM` must be on a domain you have verified with Resend.
+   Leave it blank and Orion sends from `onboarding@resend.dev`, which needs no
+   domain and is fine for alerts to yourself.
 
 ### `PUBLIC_APP_URL`
 
@@ -334,9 +357,10 @@ the charge button is hidden rather than offered and failing.
 | `TWILIO_ACCOUNT_SID` | optional | Real calls |
 | `TWILIO_AUTH_TOKEN` | optional | Real calls |
 | `TWILIO_PHONE_NUMBER` | optional | Real calls |
-| `TWILIO_WHATSAPP_FROM` | optional | WhatsApp escalation |
-| `SENDGRID_API_KEY` | optional | Email escalation |
-| `ESCALATION_EMAIL_FROM` | optional | Verified SendGrid sender |
+| `TWILIO_WHATSAPP_FROM` | optional | WhatsApp escalation. Free on Twilio's sandbox |
+| `ESCALATION_SMS_TO` | optional | Fallback SMS number for a deployment with no profiles. SMS itself needs no extra key |
+| `RESEND_API_KEY` | optional | Email escalation. 3,000 a month free |
+| `ESCALATION_EMAIL_FROM` | optional | A sender on a domain verified with Resend |
 | `PUBLIC_APP_URL` | optional | Links inside escalation messages |
 | `STRIPE_SECRET_KEY` | optional | Per-negotiation success fee. Unavailable to Nigerian merchants |
 | `PAYSTACK_SECRET_KEY` | for paid plans | The $0.50/month subscription |

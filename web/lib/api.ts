@@ -67,6 +67,7 @@ export interface UserProfile {
   postal_code: string | null;
   preferred_language: string;
   escalation_whatsapp: string | null;
+  escalation_sms: string | null;
   escalation_email: string | null;
   created_at: string | null;
   updated_at: string | null;

@@ -39,6 +39,12 @@ async def capabilities() -> dict:
             # exists either way and is honest with the agent when it cannot,
             # but the account page should not invite somebody to enter a
             # number that nothing will ever message.
-            "hasEscalation": bool(settings.sendgrid_api_key or settings.twilio_whatsapp_from),
+            "hasEscalation": bool(
+                # SMS rides on the number that already places calls, so a
+                # deployment that can call can also escalate.
+                (settings.twilio_account_sid and settings.twilio_phone_number)
+                or settings.twilio_whatsapp_from
+                or settings.resend_api_key
+            ),
         },
     }

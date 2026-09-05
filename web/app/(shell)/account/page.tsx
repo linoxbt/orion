@@ -49,6 +49,12 @@ const IDENTITY: Field[] = [
 // user, because everyone using Orion has their own number and inbox.
 const ESCALATION: Field[] = [
   {
+    key: "escalation_sms",
+    label: "Mobile for texts",
+    type: "tel",
+    hint: "Tried first - a text arrives whether or not you were expecting it. Defaults to the phone number above",
+  },
+  {
     key: "escalation_whatsapp",
     label: "WhatsApp number",
     type: "tel",
@@ -162,6 +168,7 @@ export default function AccountPage() {
     ["State or region", value("region")],
     ["Postal code", value("postal_code")],
     ["Country", value("country")],
+    ["Mobile for texts", value("escalation_sms") || value("phone")],
     ["WhatsApp for alerts", value("escalation_whatsapp")],
     ["Email for alerts", value("escalation_email") || (email ?? "")],
     ["Default call language", language],

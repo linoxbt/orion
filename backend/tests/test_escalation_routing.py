@@ -29,6 +29,7 @@ def _session(user_id: str | None) -> NegotiationSession:
 def _no_global_contacts(monkeypatch):
     monkeypatch.setattr(settings, "escalation_whatsapp_to", "")
     monkeypatch.setattr(settings, "escalation_email_to", "")
+    monkeypatch.setattr(settings, "escalation_sms_to", "")
 
 
 def _with_profile(monkeypatch, profile: UserProfile | None):
@@ -48,9 +49,9 @@ class TestRecipients:
                 escalation_email="owner@example.com",
             ),
         )
-        whatsapp, email = asyncio.run(notify._recipients(_session("user-1")))
-        assert whatsapp == "+2347000000000"
-        assert email == "owner@example.com"
+        to = asyncio.run(notify._recipients(_session("user-1")))
+        assert to.whatsapp == "+2347000000000"
+        assert to.email == "owner@example.com"
 
     def test_two_users_are_reached_separately(self, monkeypatch):
         """The actual bug: one global address for everybody."""
@@ -64,39 +65,54 @@ class TestRecipients:
 
         monkeypatch.setattr(notify.supabase_store, "get_profile", fake_get_profile)
 
-        first, _ = asyncio.run(notify._recipients(_session("user-1")))
-        second, _ = asyncio.run(notify._recipients(_session("user-2")))
-        assert (first, second) == ("+111", "+222")
+        first = asyncio.run(notify._recipients(_session("user-1")))
+        second = asyncio.run(notify._recipients(_session("user-2")))
+        assert (first.whatsapp, second.whatsapp) == ("+111", "+222")
 
     def test_the_account_email_is_used_when_no_alert_email_is_set(self, monkeypatch):
         _with_profile(monkeypatch, UserProfile(id="user-1", email="me@example.com"))
-        _, email = asyncio.run(notify._recipients(_session("user-1")))
-        assert email == "me@example.com"
+        assert asyncio.run(notify._recipients(_session("user-1"))).email == "me@example.com"
 
     def test_a_user_with_no_contacts_gets_no_escalation(self, monkeypatch):
         _with_profile(monkeypatch, UserProfile(id="user-1"))
-        assert asyncio.run(notify._recipients(_session("user-1"))) == (None, None)
+        assert asyncio.run(notify._recipients(_session("user-1"))) == (None, None, None)
+
+    def test_the_mobile_on_the_account_is_used_for_sms(self, monkeypatch):
+        """Nobody should have to type the same number into two fields."""
+        _with_profile(monkeypatch, UserProfile(id="user-1", phone="+2347000000000"))
+        assert asyncio.run(notify._recipients(_session("user-1"))).sms == "+2347000000000"
+
+    def test_an_explicit_sms_number_wins_over_the_account_mobile(self, monkeypatch):
+        _with_profile(
+            monkeypatch,
+            UserProfile(id="user-1", phone="+2340000000000", escalation_sms="+2347000000000"),
+        )
+        assert asyncio.run(notify._recipients(_session("user-1"))).sms == "+2347000000000"
+
+    def test_the_whatsapp_number_is_the_last_guess_for_sms(self, monkeypatch):
+        """One handset, one number, however it was offered."""
+        _with_profile(monkeypatch, UserProfile(id="user-1", escalation_whatsapp="+2347000000000"))
+        assert asyncio.run(notify._recipients(_session("user-1"))).sms == "+2347000000000"
 
     def test_the_environment_is_only_a_fallback(self, monkeypatch):
         """Kept for a single-user or local deployment that has no profiles."""
         monkeypatch.setattr(settings, "escalation_whatsapp_to", "+999")
         _with_profile(monkeypatch, None)
-        whatsapp, _ = asyncio.run(notify._recipients(_session("user-1")))
-        assert whatsapp == "+999"
+        assert asyncio.run(notify._recipients(_session("user-1"))).whatsapp == "+999"
 
     def test_a_profile_lookup_failure_never_breaks_the_call(self, monkeypatch):
         async def boom(user_id: str):
             raise RuntimeError("supabase is down")
 
         monkeypatch.setattr(notify.supabase_store, "get_profile", boom)
-        assert asyncio.run(notify._recipients(_session("user-1"))) == (None, None)
+        assert asyncio.run(notify._recipients(_session("user-1"))) == (None, None, None)
 
     def test_an_unowned_session_falls_back_without_a_lookup(self, monkeypatch):
         async def boom(user_id: str):
             raise AssertionError("should not be called for an unowned session")
 
         monkeypatch.setattr(notify.supabase_store, "get_profile", boom)
-        assert asyncio.run(notify._recipients(_session(None))) == (None, None)
+        assert asyncio.run(notify._recipients(_session(None))) == (None, None, None)
 
 
 class TestDelivery:

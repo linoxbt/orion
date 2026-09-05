@@ -30,6 +30,9 @@ class UserProfile(BaseModel):
     # and a single global escalation address would page one person about every
     # customer's call.
     escalation_whatsapp: str | None = None
+    # Falls back to `phone` and then to the WhatsApp number: somebody who gave
+    # one mobile meant one mobile.
+    escalation_sms: str | None = None
     escalation_email: str | None = None
 
     # Plan and the free tier's monthly allowance. The month is stored next to

@@ -77,10 +77,22 @@ class Settings(BaseSettings):
     # Reaching the customer when the agent escalates mid-call. All optional -
     # an unconfigured channel is skipped, never an error, because a failed
     # notification must not take down a live phone call.
-    twilio_whatsapp_from: str = ""      # the WhatsApp-enabled Twilio number
+    # The WhatsApp-enabled Twilio sender. On the free sandbox this is
+    # Twilio's own shared number, and it arrives already prefixed:
+    # whatsapp:+14155238886. The prefix is optional here either way.
+    twilio_whatsapp_from: str = ""
     escalation_whatsapp_to: str = ""    # the customer's WhatsApp number, E.164
-    sendgrid_api_key: str = ""
+
+    # SMS needs no new account at all: it goes out from twilio_phone_number,
+    # the same number that places the calls.
+    escalation_sms_to: str = ""
+
+    # Resend rather than SendGrid: 3,000 emails a month, free and staying free,
+    # against SendGrid's sixty-day trial and $19.95 floor since May 2025.
+    resend_api_key: str = ""
     escalation_email_to: str = ""
+    # Must be on a domain verified with Resend. onboarding@resend.dev needs no
+    # domain and is what an unverified deployment should use.
     escalation_email_from: str = ""
     # Used to build a link back into the app in the notification body.
     public_app_url: str = ""

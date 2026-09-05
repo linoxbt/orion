@@ -46,6 +46,7 @@ class ProfileUpdate(BaseModel):
     postal_code: str | None = None
     preferred_language: str | None = None
     escalation_whatsapp: str | None = None
+    escalation_sms: str | None = None
     escalation_email: str | None = None
 
 
