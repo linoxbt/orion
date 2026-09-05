@@ -12,7 +12,10 @@ off mid-word.
 
 import asyncio
 
+import pytest
+
 from app.models import NegotiationSession
+from app.store import init_db
 from app.services import agent_bridge, call_tools
 from app.services.agent_bridge import NegotiationRelay
 
@@ -36,12 +39,25 @@ def a_session() -> NegotiationSession:
     )
 
 
+@pytest.fixture
+def store(isolated_db):
+    """A schema-backed database of this test's own.
+
+    end_call persists the session as it records the outcome. Without this the
+    write lands in whatever orion.db happens to be sitting in the working
+    directory - which passes on a developer machine that has one and fails on a
+    fresh checkout, which is exactly how these four tests went red in CI while
+    staying green here.
+    """
+    asyncio.run(init_db())
+
+
 class TestEndCallTool:
     def test_it_is_offered_to_the_agent(self):
         names = {tool["name"] for tool in call_tools.TOOL_DEFINITIONS}
         assert "end_call" in names
 
-    def test_it_hangs_up(self):
+    def test_it_hangs_up(self, store):
         session = a_session()
         hung_up = asyncio.Event()
 
@@ -56,12 +72,12 @@ class TestEndCallTool:
         assert hung_up.is_set()
         assert "ending" in result.lower()
 
-    def test_the_reason_becomes_the_outcome(self):
+    def test_the_reason_becomes_the_outcome(self, store):
         session = a_session()
         asyncio.run(call_tools.dispatch(session, "end_call", {"reason": "They refused."}))
         assert session.outcome == "They refused."
 
-    def test_it_does_not_overwrite_an_outcome_already_recorded(self):
+    def test_it_does_not_overwrite_an_outcome_already_recorded(self, store):
         """log_offer and record_confirmation_number know more than a one-line
         reason does. The tool that ran first was closer to the facts."""
         session = a_session()
@@ -69,7 +85,7 @@ class TestEndCallTool:
         asyncio.run(call_tools.dispatch(session, "end_call", {"reason": "Done."}))
         assert session.outcome == "Agreed 69.99 for 12 months, confirmation A1B2C3."
 
-    def test_it_survives_a_rehearsal_with_nothing_to_hang_up(self):
+    def test_it_survives_a_rehearsal_with_nothing_to_hang_up(self, store):
         """The browser rehearsal has no phone call. The tool still records the
         outcome rather than erroring at the agent mid-sentence."""
         session = a_session()
