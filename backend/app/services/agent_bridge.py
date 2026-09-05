@@ -31,6 +31,11 @@ class NegotiationRelay(VoiceAgentRelay):
     def __init__(self, websocket: WebSocket, session: NegotiationSession) -> None:
         super().__init__(websocket, label=f"orion:{session.task_id}")
         self.session = session
+        # Work started by this relay that outlives the call it was started
+        # from: stance classifications (see on_transcript) and the delayed
+        # hang-up. Held in a set because asyncio keeps only a weak reference to
+        # a running task and will collect one nobody is watching.
+        self._background: set[asyncio.Task] = set()
 
     def session_config(self) -> dict[str, Any]:
         return {
@@ -73,17 +78,40 @@ class NegotiationRelay(VoiceAgentRelay):
         if speaker != "them":
             return
 
-        reading = await tactics.read_stance(text)
-        if reading is None:
-            return
+        # Off the pump, deliberately.
+        #
+        # This hook is awaited by the loop that reads the agent's messages and
+        # forwards its audio to Twilio. Reading the room costs an HTTP round
+        # trip to the LLM Gateway, and awaiting it here meant no audio moved
+        # for its duration - a few hundred milliseconds of dead air mid-call on
+        # a good day, and up to the gateway's whole timeout on a bad one. The
+        # classification is useful, but never at the price of the call it is
+        # describing.
+        self._spawn(self._read_the_room(text))
 
-        events.publish(self.session.task_id, {"type": "stance", **reading})
-        # agent_context biases the next turn - this is where the read of the
-        # room actually changes what the agent says next, rather than just
-        # decorating a dashboard.
-        await self.send_configuration_update(
-            {"session": {"input": {"agent_context": tactics.coaching_note(reading)}}}
-        )
+    def _spawn(self, coro) -> None:
+        task = asyncio.create_task(coro)
+        self._background.add(task)
+        task.add_done_callback(self._background.discard)
+
+    async def _read_the_room(self, text: str) -> None:
+        """Classify one representative turn and feed it back into the agent."""
+        try:
+            reading = await tactics.read_stance(text)
+            if reading is None:
+                return
+
+            events.publish(self.session.task_id, {"type": "stance", **reading})
+            # agent_context biases the next turn - this is where the read of the
+            # room actually changes what the agent says next, rather than just
+            # decorating a dashboard.
+            await self.send_configuration_update(
+                {"session": {"input": {"agent_context": tactics.coaching_note(reading)}}}
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - a stalled read must not end a call
+            logger.warning("[orion:%s] Could not read the room: %s", self.session.task_id, exc)
 
     async def on_tool_call(self, name: str, arguments: dict[str, Any]) -> str:
         # press_keys needs to put audio on the call, not just record something,
@@ -107,7 +135,7 @@ class NegotiationRelay(VoiceAgentRelay):
         tool result go back immediately - blocking inside the handler would
         stall every other message on the socket for the same three seconds.
         """
-        asyncio.create_task(self._hang_up_after_goodbye())
+        self._spawn(self._hang_up_after_goodbye())
 
     async def _hang_up_after_goodbye(self) -> None:
         # A beat before listening for quiet: between turns the agent is already

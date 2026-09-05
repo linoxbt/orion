@@ -9,6 +9,7 @@ import pytest
 
 from app.config import settings
 from app.routers import dashboard
+from app.routers.dashboard import _mint_session
 from tests.conftest import ADMIN_KEY
 
 
@@ -49,7 +50,7 @@ class TestAccess:
         assert "Sign in" in res.text
 
     def test_signing_out_clears_the_cookie(self, client):
-        client.cookies.set("orion_admin", ADMIN_KEY)
+        client.cookies.set("orion_admin", _mint_session())
         res = client.get("/admin/logout", follow_redirects=False)
         assert res.status_code == 303
         assert 'orion_admin=""' in res.headers.get("set-cookie", "") or \
@@ -71,14 +72,14 @@ class TestAccess:
 
 class TestRendering:
     def test_it_renders_with_real_data(self, client):
-        client.cookies.set("orion_admin", ADMIN_KEY)
+        client.cookies.set("orion_admin", _mint_session())
         res = client.get("/admin")
         assert res.status_code == 200
         for section in ("Protocol", "Money", "Integrations", "Recent negotiations", "Payments"):
             assert section in res.text
 
     def test_it_never_prints_a_secret(self, client):
-        client.cookies.set("orion_admin", ADMIN_KEY)
+        client.cookies.set("orion_admin", _mint_session())
         body = client.get("/admin").text
         assert ADMIN_KEY not in body
         for secret in (settings.assemblyai_api_key, settings.gemini_api_key,
@@ -92,7 +93,7 @@ class TestRendering:
             raise RuntimeError("supabase is down")
 
         monkeypatch.setattr(dashboard.admin_stats, "collect", boom)
-        client.cookies.set("orion_admin", ADMIN_KEY)
+        client.cookies.set("orion_admin", _mint_session())
         res = client.get("/admin")
         assert res.status_code == 200
         assert "did not load" in res.text

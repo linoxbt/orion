@@ -88,6 +88,23 @@ async def _grant_pro(
     logger.info("Paid plan extended for %s on %s", user_id, reference)
 
 
+def _covers_the_plan(data: dict) -> bool:
+    """Whether this charge is worth a month of Pro.
+
+    Paystack reports minor units - kobo for NGN, cents for USD - so the plan
+    price in whole units is multiplied out here. A charge in another currency
+    is not comparable and is refused rather than guessed at.
+    """
+    try:
+        paid = int(data.get("amount") or 0)
+    except (TypeError, ValueError):
+        return False
+    currency = str(data.get("currency") or "").upper()
+    if currency and currency != settings.paystack_currency.upper():
+        return False
+    return paid >= settings.pro_price * 100
+
+
 async def _owner_of_subscription(code: str | None) -> str | None:
     """Which account a subscription belongs to.
 
@@ -220,6 +237,24 @@ async def paystack_webhook(
         if not user_id or not reference:
             logger.warning("charge.success with no user_id or reference: %s", reference)
             return {"status": "ignored"}
+
+        # What was actually paid, not merely that something was.
+        #
+        # Paystack's inline checkout runs on the public key, where the amount
+        # and the metadata are both the caller's to choose. Granting a month of
+        # unlimited bills for any signed charge carrying a user_id meant a
+        # fifty-naira payment bought the same thing as the plan.
+        if not _covers_the_plan(data):
+            logger.warning(
+                "Ignoring charge %s for %s %s: below the %s %s plan price",
+                reference,
+                data.get("amount"),
+                data.get("currency"),
+                settings.pro_price * 100,
+                settings.paystack_currency,
+            )
+            return {"status": "ignored"}
+
         await _grant_pro(
             user_id,
             reference,

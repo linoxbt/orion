@@ -14,7 +14,7 @@ import logging
 from datetime import datetime, timezone
 
 from app.config import settings
-from app.models import NegotiationStatus
+from app.models import NegotiationSession, NegotiationStatus
 from app.services import events
 from app.services.live_bridge import run_bridge
 from app.services.twilio_client import (
@@ -26,7 +26,7 @@ from app.services.twilio_client import (
     voice_webhook_url,
 )
 from app.services.verification import apply_transcript, ingest_recording
-from app.store import get_session, save_session
+from app.store import get_session, mutate, save_session
 
 # How a call can end, and what to record when it does. "completed" is the only
 # one that means a conversation actually happened.
@@ -173,12 +173,19 @@ async def recording_webhook(
     except ValueError:
         duration = 0
 
-    attempt = _attempt_for(session, params.get("CallSid"))
-    if attempt:
-        attempt.duration_seconds = duration
-        await save_session(session)
+    call_sid = params.get("CallSid")
 
-    background.add_task(ingest_recording, session, recording_url, duration)
+    def record_duration(current: NegotiationSession) -> None:
+        attempt = _attempt_for(current, call_sid)
+        if attempt:
+            attempt.duration_seconds = duration
+
+    session = await mutate(taskId, record_duration) or session
+
+    # The SID travels with it: a recording belongs to the dial it came from,
+    # and a retry placed while this was in flight would otherwise file it
+    # against the wrong attempt.
+    background.add_task(ingest_recording, session, recording_url, duration, call_sid)
     return {"status": "accepted"}
 
 
@@ -249,40 +256,51 @@ async def status_webhook(
         return {"status": "ignored"}
 
     call_status = params.get("CallStatus", "")
-    events.publish(taskId, {"type": "call_status", "status": call_status})
-
     # Which dial this is about. Matching on the SID rather than assuming the
     # last one keeps a late webhook from a previous attempt off the current
     # one's record.
-    attempt = _attempt_for(session, params.get("CallSid"))
+    call_sid = params.get("CallSid")
+    events.publish(taskId, {"type": "call_status", "status": call_status})
 
-    if call_status == "in-progress":
-        # Answered. This is the only place answered_at is written, and it is
-        # what the screen keys the timer off - `status` is already CALLING from
-        # the moment dialling was accepted, so it cannot tell the two apart.
-        session.status = NegotiationStatus.CALLING
+    def answered(current: NegotiationSession) -> None:
+        # This is the only place answered_at is written, and it is what the
+        # screen keys the timer off - `status` is already CALLING from the
+        # moment dialling was accepted, so it cannot tell the two apart.
+        current.status = NegotiationStatus.CALLING
         now = datetime.now(timezone.utc).isoformat()
-        if not session.answered_at:
-            session.answered_at = now
+        if not current.answered_at:
+            current.answered_at = now
+        attempt = _attempt_for(current, call_sid)
         if attempt and not attempt.answered_at:
             attempt.answered_at = now
-        await save_session(session)
-    elif call_status in _ENDED_STATUSES:
+
+    def ended(current: NegotiationSession) -> None:
         # The call is over however it ended, so the screen must not stay live.
-        if session.status == NegotiationStatus.CALLING:
-            session.status = (
+        #
+        # PENDING counts as still-live here as well as CALLING. The bridge's
+        # own teardown moves a finished call back to PENDING while it waits for
+        # the recording, and it usually wins the race with this webhook -
+        # so requiring CALLING meant a completed call sat on the dashboard
+        # reading "Pending" for good.
+        if current.status in (NegotiationStatus.CALLING, NegotiationStatus.PENDING):
+            current.status = (
                 NegotiationStatus.COMPLETED
                 if call_status == "completed"
                 else NegotiationStatus.FAILED
             )
-        if call_status != "completed" and not session.outcome:
-            session.outcome = _ENDED_STATUSES[call_status]
+        if call_status != "completed" and not current.outcome:
+            current.outcome = _ENDED_STATUSES[call_status]
+        attempt = _attempt_for(current, call_sid)
         if attempt:
             attempt.ended_at = datetime.now(timezone.utc).isoformat()
             attempt.end_reason = call_status
             if not attempt.outcome and call_status != "completed":
                 attempt.outcome = _ENDED_STATUSES[call_status]
-        await save_session(session)
+
+    if call_status == "in-progress":
+        await mutate(taskId, answered)
+    elif call_status in _ENDED_STATUSES:
+        await mutate(taskId, ended)
         events.publish(
             taskId,
             {"type": "status", "status": "call_ended", "reason": call_status},

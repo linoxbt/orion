@@ -18,9 +18,23 @@ from typing import Any
 from app.models import NegotiationSession, Offer
 from app.services import account_vault, events, notify
 from app.services.dtmf import VALID_KEYS, keys_to_mulaw
-from app.store import save_session
+from app.store import mutate
 
 logger = logging.getLogger(__name__)
+
+
+async def _record(session: NegotiationSession, change) -> None:
+    """Apply a change to the live session and to the stored row.
+
+    Twice on purpose. The relay holds this session object for the length of the
+    call, so the change has to land on it for the agent's own state to stay
+    right - and it has to land on a *freshly read* row for the write not to
+    erase what Twilio's status webhook recorded a moment earlier. Saving the
+    relay's copy wholesale is what used to lose a confirmation number logged
+    seconds before a webhook arrived.
+    """
+    change(session)
+    await mutate(session.task_id, change)
 
 TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
@@ -225,8 +239,7 @@ async def dispatch(
             description=str(arguments.get("description", "")),
             accepted=bool(arguments.get("accepted", False)),
         )
-        session.offers.append(offer)
-        await save_session(session)
+        await _record(session, lambda s: s.offers.append(offer))
         events.publish(
             session.task_id,
             {"type": "offer", "monthly_rate": offer.monthly_rate, "description": offer.description,
@@ -235,11 +248,18 @@ async def dispatch(
         return "Offer logged."
 
     if name == "record_confirmation_number":
-        session.confirmation_number = str(arguments.get("confirmation_number", "")).strip() or None
+        number = str(arguments.get("confirmation_number", "")).strip() or None
         rate = arguments.get("new_monthly_rate")
-        if rate is not None:
-            session.new_rate = float(rate)
-        await save_session(session)
+
+        def note(s: NegotiationSession) -> None:
+            s.confirmation_number = number
+            if rate is not None:
+                s.new_rate = float(rate)
+
+        # The most important write in the application: a saving that cannot be
+        # referenced is not a saving. It must not be lost to a webhook that
+        # happened to load the session a second earlier.
+        await _record(session, note)
         events.publish(
             session.task_id,
             {"type": "confirmation", "confirmation_number": session.confirmation_number,
@@ -252,8 +272,9 @@ async def dispatch(
         # a bill running and a person waiting for it to go away. Ending is the
         # polite thing and the cheap thing.
         reason = str(arguments.get("reason", "")).strip()
-        session.outcome = session.outcome or reason or "The call ended."
-        await save_session(session)
+        await _record(
+            session, lambda s: setattr(s, "outcome", s.outcome or reason or "The call ended.")
+        )
         logger.info("[%s] Agent ended the call: %s", session.task_id, reason or "no reason given")
         events.publish(
             session.task_id, {"type": "status", "status": "agent_ended", "reason": reason}
@@ -263,9 +284,13 @@ async def dispatch(
         return "The call is ending. Say nothing further."
 
     if name == "escalate_to_human":
-        session.escalated = True
-        session.escalation_reason = str(arguments.get("reason", "")).strip() or None
-        await save_session(session)
+        why = str(arguments.get("reason", "")).strip() or None
+
+        def flag(s: NegotiationSession) -> None:
+            s.escalated = True
+            s.escalation_reason = why
+
+        await _record(session, flag)
         events.publish(
             session.task_id, {"type": "escalation", "reason": session.escalation_reason}
         )

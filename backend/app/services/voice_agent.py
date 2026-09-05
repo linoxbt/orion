@@ -70,6 +70,12 @@ SILENCE_PROMPTS: tuple[tuple[float, str], ...] = (
 # One Twilio media frame is 20ms of 8kHz mu-law.
 TWILIO_FRAME_BYTES = 160
 
+# How long a tool result may wait for the turn to finish before it is sent
+# anyway. The API is owed an answer for every tool call it makes, and a result
+# that is never delivered leaves the session waiting on one - so holding them
+# for the turn is a courtesy with a deadline, not a promise.
+TOOL_RESULT_PATIENCE = 2.0
+
 
 class VoiceAgentRelay:
     """One call, relayed. Subclass and override the hooks you care about."""
@@ -95,6 +101,8 @@ class VoiceAgentRelay:
         # wait on it rather than polling.
         self._agent_quiet = asyncio.Event()
         self._agent_quiet.set()
+        # The watchdog that stops a held tool result waiting forever.
+        self._tool_deadline: asyncio.Task | None = None
 
     # ---- to be supplied by subclasses -------------------------------------
 
@@ -125,6 +133,34 @@ class VoiceAgentRelay:
         """
 
     # ---- relay ------------------------------------------------------------
+
+    async def _flush_tool_results(self) -> None:
+        """Hand back every result the agent is still owed."""
+        while self._pending_tool_results:
+            result = self._pending_tool_results.pop(0)
+            if self._agent is None:
+                return
+            try:
+                await self._agent.send(json.dumps(result))
+            except ConnectionClosed:
+                return
+
+    async def _flush_tool_results_soon(self) -> None:
+        """Deliver held results even if the turn never ends.
+
+        Results used to wait for reply.done and be dropped on a barge-in. A
+        dropped result is not neutral: the API asked a question and never got
+        an answer, which leaves that session waiting on one, and if it withholds
+        reply.done until the result arrives the two sides deadlock - the call
+        going silent for the rest of its life.
+        """
+        try:
+            await asyncio.sleep(TOOL_RESULT_PATIENCE)
+        except asyncio.CancelledError:
+            raise
+        if self._pending_tool_results:
+            logger.info("[%s] Turn ran long; sending tool results anyway", self.label)
+            await self._flush_tool_results()
 
     async def send_configuration_update(self, update: dict[str, Any]) -> None:
         if self._agent is not None:
@@ -250,8 +286,9 @@ class VoiceAgentRelay:
             except (WebSocketDisconnect, ConnectionClosed):
                 pass
             finally:
-                for task in (silence, unanswered):
-                    task.cancel()
+                for task in (silence, unanswered, self._tool_deadline):
+                    if task is not None:
+                        task.cancel()
                 pumps.cancel()
                 self._agent = None
 
@@ -307,11 +344,13 @@ class VoiceAgentRelay:
                     await self.on_speaking(False)
                 if message.get("status") == "interrupted":
                     await self._clear_twilio_buffer()
-                    self._pending_tool_results.clear()
+                    # The audio is abandoned; the results are not. Whoever
+                    # talked over the agent did not cancel the tool call the
+                    # API is still waiting to hear back about.
+                    await self._flush_tool_results()
                     await self.on_interrupted()
                 else:
-                    while self._pending_tool_results:
-                        await self._agent.send(json.dumps(self._pending_tool_results.pop(0)))
+                    await self._flush_tool_results()
 
             elif kind == "transcript.user":
                 if text := (message.get("transcript") or "").strip():
@@ -331,6 +370,9 @@ class VoiceAgentRelay:
                 self._pending_tool_results.append(
                     {"type": "tool.result", "call_id": message["call_id"], "result": result}
                 )
+                # Held for the turn, but not indefinitely - see
+                # _flush_tool_results_soon.
+                self._tool_deadline = asyncio.create_task(self._flush_tool_results_soon())
 
             elif kind == "error":
                 logger.error("[%s] Voice Agent API error: %s", self.label, message)

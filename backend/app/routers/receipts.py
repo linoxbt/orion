@@ -49,6 +49,25 @@ class Receipt(BaseModel):
     is_sample: bool = False
 
 
+def _public_outcome(session, monthly: float | None) -> str:
+    """One sentence, built from the figures rather than quoted from the call.
+
+    `session.outcome` is prose a language model wrote from a call transcript.
+    It is right for the customer's own page, where they can check it against
+    the recording - but this endpoint is public and forwardable, and the
+    transcript it came from is somebody's phone call about their account.
+    Redaction reduces the chance a name or a fragment of an account number
+    survives into it; stating the numbers ourselves removes it.
+    """
+    if monthly is None:
+        return f"A change was agreed with {session.provider} and verified from the call recording."
+    return (
+        f"{session.provider} agreed to reduce this bill from "
+        f"${session.previous_rate:.2f} to ${session.new_rate:.2f} a month, "
+        "verified from the call recording."
+    )
+
+
 @router.get("/api/receipts/{task_id}", response_model=Receipt)
 async def get_receipt(task_id: str) -> Receipt:
     """A shareable record of a verified saving. Public, and intentionally so -
@@ -74,7 +93,7 @@ async def get_receipt(task_id: str) -> Receipt:
         monthly_saving=monthly,
         annual_saving=round(monthly * 12, 2) if monthly is not None else None,
         confirmation_number=session.confirmation_number,
-        outcome=session.outcome,
+        outcome=_public_outcome(session, monthly),
         verified=session.verified,
         verification_source=session.verification_source,
         is_sample=session.is_sample,

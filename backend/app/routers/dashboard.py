@@ -11,8 +11,10 @@ in a query string would write it into every access log and referrer between
 here and the operator's machine.
 """
 
+import hashlib
 import hmac
 import logging
+import time
 from typing import Any
 
 from fastapi import APIRouter, Form, Request, Response
@@ -20,12 +22,16 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.config import settings
 from app.services import admin_stats
+from app.services.ratelimit import limit
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["dashboard"])
 
 COOKIE = "orion_admin"
+# How long a signed-in operator session lasts. Independently of the cookie's own
+# max-age, because a cookie's expiry is advice to a browser and this is not.
+SESSION_TTL_SECONDS = 30 * 24 * 3600
 # Long-lived on purpose: this is an operator's own machine, and being asked
 # to paste a key every working day trains the habit of keeping it somewhere
 # convenient and unsafe. Not unbounded, though - a session that never expires
@@ -33,12 +39,42 @@ COOKIE = "orion_admin"
 COOKIE_MAX_AGE = 30 * 24 * 3600
 
 
+def _mint_session(now: float | None = None) -> str:
+    """A token derived from the admin key, not the key itself.
+
+    The cookie used to *be* `ADMIN_API_KEY` - the credential that can place
+    phone calls, charge cards and reach every customer's negotiations, parked
+    in a browser for thirty days and sent on every request. This is a signed,
+    expiring statement that somebody proved they knew it, which is all a
+    session needs to be. The key stays on the server.
+    """
+    expires = int((now if now is not None else time.time()) + SESSION_TTL_SECONDS)
+    digest = hmac.new(
+        settings.admin_api_key.encode(), f"admin.{expires}".encode(), hashlib.sha256
+    ).hexdigest()
+    return f"{expires}.{digest}"
+
+
 def _authorised(request: Request) -> bool:
     token = request.cookies.get(COOKIE)
     if not token or not settings.admin_api_key:
         return False
-    # Constant time: a fast reject leaks how much of the key was right.
-    return hmac.compare_digest(token, settings.admin_api_key)
+
+    expires_raw, _, digest = token.partition(".")
+    if not digest:
+        return False
+    try:
+        expires = int(expires_raw)
+    except ValueError:
+        return False
+    if time.time() > expires:
+        return False
+
+    expected = hmac.new(
+        settings.admin_api_key.encode(), f"admin.{expires}".encode(), hashlib.sha256
+    ).hexdigest()
+    # Constant time: a fast reject leaks how much of the digest was right.
+    return hmac.compare_digest(expected, digest)
 
 
 # ---- rendering -------------------------------------------------------------
@@ -306,8 +342,22 @@ async def dashboard(request: Request):
 
 
 @router.post("/admin/login", include_in_schema=False)
-async def login(response: Response, key: str = Form(...)):
+async def login(request: Request, response: Response, key: str = Form(...)):
+    # The only credential-guessing surface Orion exposes to the internet, and
+    # it used to accept attempts as fast as they could be sent: no delay, no
+    # lockout, nothing logged. Every other endpoint that costs money is
+    # limited; the one that opens the door was not.
+    limit(
+        f"admin-login:{request.client.host if request.client else 'unknown'}",
+        max_calls=5,
+        per_seconds=900,
+    )
+
     if not settings.admin_api_key or not hmac.compare_digest(key, settings.admin_api_key):
+        logger.warning(
+            "Rejected an admin sign-in from %s",
+            request.client.host if request.client else "an unknown address",
+        )
         return _page(
             '<form class="login" method="post" action="/admin/login">'
             '<div class="brand"><i></i>Orion control</div>'
@@ -323,7 +373,7 @@ async def login(response: Response, key: str = Form(...)):
     # SameSite=lax so another site cannot navigate a browser into using it.
     redirect.set_cookie(
         COOKIE,
-        settings.admin_api_key,
+        _mint_session(),
         max_age=COOKIE_MAX_AGE,
         httponly=True,
         secure=True,

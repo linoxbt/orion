@@ -36,12 +36,19 @@ class FakeTwilio:
     is a property of the fake, not of the relay.
     """
 
-    def __init__(self, inbound: list[dict], gate: asyncio.Event | None = None):
+    def __init__(
+        self, inbound: list[dict], gate: asyncio.Event | None = None, keep_open: bool = False
+    ):
         self._inbound = list(inbound)
         self.sent: list[dict] = []
         self.gate = gate
+        # A real call does not hang up the moment the script runs out. Tests
+        # about what happens mid-call need the line to stay up.
+        self._keep_open = keep_open
 
     async def receive_text(self) -> str:
+        if not self._inbound and self._keep_open:
+            await asyncio.sleep(3600)
         if not self._inbound:
             # Nothing left to say; behave like a caller who hung up.
             return json.dumps({"event": "stop"})
@@ -59,9 +66,12 @@ class FakeTwilio:
 class FakeAgent:
     """Stands in for the AssemblyAI Voice Agent websocket."""
 
-    def __init__(self, script: list[dict]):
+    def __init__(self, script: list[dict], keep_open: bool = False):
         self._script = list(script)
         self.sent: list[dict] = []
+        # A real session does not end when the script does. Tests about what
+        # happens *while* a turn is open need the socket to stay open.
+        self._keep_open = keep_open
 
     async def send(self, payload: str) -> None:
         self.sent.append(json.loads(payload))
@@ -72,6 +82,8 @@ class FakeAgent:
                 # Let the Twilio pump run between agent messages.
                 await asyncio.sleep(0)
                 yield json.dumps(message)
+            while self._keep_open:
+                await asyncio.sleep(0.01)
 
         return messages()
 
@@ -215,9 +227,15 @@ def test_tool_results_are_held_until_the_turn_completes():
     assert results[0]["result"] == "Offer logged."
 
 
-def test_tool_results_are_discarded_on_barge_in():
-    """The human talked over the answer - sending it now answers a question
-    that is no longer on the table."""
+def test_tool_results_survive_a_barge_in():
+    """A barge-in abandons the audio, not the protocol.
+
+    These used to be dropped, on the reasoning that the human had talked over
+    the answer. That reasoning applies to speech, not to a tool result: the API
+    asked a question and is waiting for one, and dropping it leaves that call
+    unanswered for the rest of the session - which, if it withholds reply.done
+    until the result arrives, is a deadlock with a live customer on the line.
+    """
     twilio = FakeTwilio([START, {"event": "stop"}])
     agent = FakeAgent(
         [
@@ -231,7 +249,58 @@ def test_tool_results_are_discarded_on_barge_in():
     run_relay(relay, agent)
 
     assert relay.tool_calls  # the tool still ran
-    assert agent.messages("tool.result") == []  # but its answer was dropped
+    results = agent.messages("tool.result")
+    assert [r["call_id"] for r in results] == ["c1"]
+
+
+def test_a_held_tool_result_is_sent_even_if_the_turn_never_ends(monkeypatch):
+    """No reply.done ever arrives. The result must not wait forever."""
+    monkeypatch.setattr(voice_agent, "TOOL_RESULT_PATIENCE", 0.05)
+
+    twilio = FakeTwilio([START], keep_open=True)  # the line stays up
+    agent = FakeAgent(
+        [
+            {"type": "session.ready"},
+            {"type": "tool.call", "call_id": "c1", "name": "log_offer", "arguments": {}},
+        ],
+        keep_open=True,
+    )
+    relay = Recording(twilio, tool_result="Offer logged.")
+
+    # run_relay would wait for the call to end, and this call never does -
+    # that is the point of it - so the relay is driven directly here, with the
+    # same patched connection run_relay installs.
+    class Connection:
+        async def __aenter__(self):
+            return agent
+
+        async def __aexit__(self, *_):
+            return False
+
+    original = voice_agent.ws_connect
+    voice_agent.ws_connect = lambda *a, **kw: Connection()
+
+    async def drive():
+        task = asyncio.create_task(relay.run())
+        try:
+            for _ in range(200):
+                await asyncio.sleep(0.01)
+                if agent.messages("tool.result"):
+                    return
+        finally:
+            task.cancel()
+            try:
+                await task
+            except BaseException:
+                pass
+
+    try:
+        asyncio.run(drive())
+    finally:
+        voice_agent.ws_connect = original
+
+    results = agent.messages("tool.result")
+    assert [r["call_id"] for r in results] == ["c1"], "the result was never delivered"
 
 
 def test_transcripts_are_labelled_by_side():

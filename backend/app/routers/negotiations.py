@@ -153,7 +153,10 @@ async def call_negotiation(
         raise HTTPException(status_code=409, detail="call_already_in_progress")
 
     try:
-        call_sid = place_outbound_call(session)
+        # to_thread, because twilio-python is synchronous: awaiting it inline
+        # stops this whole process - including the media frames of every other
+        # live call - for the length of an HTTP round trip to Twilio.
+        call_sid = await asyncio.to_thread(place_outbound_call, session)
     except TwilioNotConfigured as exc:
         session.status = NegotiationStatus.FAILED
         await save_session(session)
@@ -230,7 +233,7 @@ async def hangup_negotiation(
     """
     if session.call_sid and session.status == NegotiationStatus.CALLING:
         try:
-            end_call(session.call_sid)
+            await asyncio.to_thread(end_call, session.call_sid)
         except TwilioNotConfigured as exc:
             raise HTTPException(status_code=503, detail="twilio_not_configured") from exc
         except CallRejected as exc:
@@ -274,6 +277,29 @@ class CallRecord(BaseModel):
     download_name: str | None
 
 
+def _legacy_attempts(session: NegotiationSession) -> list[CallAttempt]:
+    """The one call a negotiation made before attempts were recorded per dial.
+
+    Sessions created before that change carry a recording and a call SID on the
+    session itself and nothing in `attempts`, so their call history rendered as
+    "No calls yet" beside a recording that plainly existed.
+    """
+    if not (session.call_sid or session.recording_path):
+        return []
+    return [
+        CallAttempt(
+            call_sid=session.call_sid,
+            started_at=session.answered_at or "",
+            answered_at=session.answered_at,
+            ended_at=None,
+            end_reason="completed" if session.answered_at else None,
+            recording_path=session.recording_path,
+            transcript_id=session.transcript_id,
+            outcome=session.outcome,
+        )
+    ]
+
+
 @router.get("/{task_id}/calls", response_model=list[CallRecord])
 async def list_calls(
     session: NegotiationSession = Depends(require_owned_session),
@@ -285,13 +311,19 @@ async def list_calls(
     the customer's behalf. Each link is signed and expires, and ownership is
     checked before any of them are minted.
     """
+    attempts = list(reversed(session.attempts or _legacy_attempts(session)))
+
+    # Signed concurrently: one round trip to storage per attempt, in series,
+    # meant the panel waited on the sum of them before rendering anything.
+    async def signed(attempt) -> str | None:
+        if not attempt.recording_path:
+            return None
+        return await recordings.playback_url(attempt.recording_path)
+
+    urls = await asyncio.gather(*(signed(attempt) for attempt in attempts))
+
     out: list[CallRecord] = []
-    for attempt in reversed(session.attempts):
-        url = (
-            await recordings.playback_url(attempt.recording_path)
-            if attempt.recording_path
-            else None
-        )
+    for attempt, url in zip(attempts, urls):
         stamp = (attempt.started_at or "")[:19].replace("T", " ").replace(":", "-")
         out.append(
             CallRecord(

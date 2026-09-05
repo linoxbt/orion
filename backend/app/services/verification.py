@@ -25,9 +25,9 @@ import httpx
 from app.config import settings
 from app.models import NegotiationSession, NegotiationStatus
 from app.services import events
-from app.services import recordings
+from app.services import gemini, recordings
 from app.services.assemblyai import REST_BASE, llm_gateway_json, rest_headers
-from app.store import save_session
+from app.store import mutate, save_session
 
 logger = logging.getLogger(__name__)
 
@@ -101,15 +101,36 @@ async def start_verification(session: NegotiationSession) -> None:
     events.publish(session.task_id, {"type": "status", "status": "awaiting_recording"})
 
 
+def _attempt_for(session: NegotiationSession, call_sid: str | None):
+    """The dial a recording belongs to.
+
+    By SID, not "the most recent one": Twilio's recording callback for the
+    first attempt can arrive after a second has been dialled, and filing it
+    against the latest attempt put one call's audio under another call's
+    record - then overwrote it when the second recording landed.
+    """
+    if call_sid:
+        for attempt in reversed(session.attempts):
+            if attempt.call_sid == call_sid:
+                return attempt
+    return session.attempts[-1] if session.attempts else None
+
+
 async def ingest_recording(
-    session: NegotiationSession, recording_url: str, duration_seconds: int = 0
+    session: NegotiationSession,
+    recording_url: str,
+    duration_seconds: int = 0,
+    call_sid: str | None = None,
 ) -> str | None:
     """Download the Twilio recording, upload it, and submit it for transcription.
 
-    Returns the transcript id, or None if AssemblyAI or Twilio isn't configured.
+    Returns the transcript id, or None when there is nothing worth transcribing
+    or the integrations it needs are not configured.
     """
-    session.recording_url = recording_url
-    await save_session(session)
+    def note_url(current: NegotiationSession) -> None:
+        current.recording_url = recording_url
+
+    session = await mutate(session.task_id, note_url) or session
 
     # Nothing was said, so there is nothing to read back.
     #
@@ -147,6 +168,15 @@ async def ingest_recording(
         await save_session(session)
         return None
 
+    # Everything above records a fact and needs no transcription. Everything
+    # below does, so this is where a missing key matters. Returning here was
+    # documented behaviour that the code never actually had: without a key it
+    # ran on to an unhandled exception inside a background task, leaving the
+    # negotiation with no outcome and no explanation of why.
+    if not settings.assemblyai_api_key:
+        logger.warning("No ASSEMBLYAI_API_KEY; cannot verify %s", session.task_id)
+        return None
+
     auth = (settings.twilio_account_sid, settings.twilio_auth_token)
     async with httpx.AsyncClient(timeout=120.0) as client:
         # Twilio serves the raw media from the recording URL with a format suffix.
@@ -160,18 +190,21 @@ async def ingest_recording(
         # existing. Failing to store must not stop the verification that
         # follows, which is the part a saving depends on.
         try:
-            attempt = session.attempts[-1] if session.attempts else None
+            attempt = _attempt_for(session, call_sid)
             stored = await recordings.store(
                 session.user_id,
                 session.task_id,
                 audio.content,
-                attempt.call_sid if attempt else session.call_sid,
+                (attempt.call_sid if attempt else None) or call_sid or session.call_sid,
             )
             if stored:
-                session.recording_path = stored
-                if attempt:
-                    attempt.recording_path = stored
-                await save_session(session)
+                def archive(current: NegotiationSession) -> None:
+                    current.recording_path = stored
+                    mine = _attempt_for(current, call_sid)
+                    if mine:
+                        mine.recording_path = stored
+
+                session = await mutate(session.task_id, archive) or session
         except Exception as exc:  # noqa: BLE001 - never block verification
             logger.warning("Could not archive the recording for %s: %s", session.task_id, exc)
 
@@ -205,8 +238,13 @@ async def ingest_recording(
         submit.raise_for_status()
         transcript_id = submit.json()["id"]
 
-    session.transcript_id = transcript_id
-    await save_session(session)
+    def note_transcript(current: NegotiationSession) -> None:
+        current.transcript_id = transcript_id
+        mine = _attempt_for(current, call_sid)
+        if mine:
+            mine.transcript_id = transcript_id
+
+    session = await mutate(session.task_id, note_transcript) or session
     events.publish(session.task_id, {"type": "status", "status": "transcribing"})
     logger.info("Submitted transcript %s for task %s", transcript_id, session.task_id)
     return transcript_id
@@ -230,6 +268,33 @@ def _dialogue(transcript: dict[str, Any]) -> str:
     )
 
 
+async def _extract(dialogue: str) -> dict[str, Any] | None:
+    """Read the outcome out of a transcript.
+
+    Gemini first, LLM Gateway second. This is the judgement the whole product
+    rests on - whether a saving happened, at what rate, under what reference -
+    and it was running on the smallest model available, a 4B, purely because
+    that is all this AssemblyAI account is entitled to reach. The Gemini key is
+    already configured for bill extraction and the model behind it is far
+    stronger, so it takes this job too; the Gateway remains the fallback for a
+    deployment with no Gemini key, which is better than nothing but is not the
+    first choice for deciding whether somebody gets billed.
+    """
+    if gemini.is_configured():
+        extracted = await gemini.structured_json(_EXTRACTION_PROMPT, dialogue)
+        if extracted is not None:
+            return extracted
+        logger.warning("Falling back to LLM Gateway for outcome extraction")
+
+    return await llm_gateway_json(
+        [
+            {"role": "system", "content": _EXTRACTION_PROMPT},
+            {"role": "user", "content": dialogue},
+        ],
+        max_tokens=600,
+    )
+
+
 async def apply_transcript(session: NegotiationSession, transcript_id: str) -> NegotiationSession:
     """Extract the outcome from a finished transcript and record it on the session.
 
@@ -244,13 +309,7 @@ async def apply_transcript(session: NegotiationSession, transcript_id: str) -> N
         return session
 
     dialogue = _dialogue(transcript)
-    extracted = await llm_gateway_json(
-        [
-            {"role": "system", "content": _EXTRACTION_PROMPT},
-            {"role": "user", "content": dialogue},
-        ],
-        max_tokens=600,
-    )
+    extracted = await _extract(dialogue)
 
     if extracted is None:
         session.outcome = session.outcome or "Transcript could not be parsed automatically."
@@ -280,7 +339,16 @@ async def apply_transcript(session: NegotiationSession, transcript_id: str) -> N
     agreed = bool(extracted.get("agreed"))
     session.verified = agreed and session.new_rate is not None and session.previous_rate is not None
     session.verification_source = "assemblyai" if session.verified else "needs_human_review"
-    session.status = NegotiationStatus.COMPLETED if agreed else NegotiationStatus.FAILED
+    # A call that happened is a completed call.
+    #
+    # This used to read FAILED whenever nothing was agreed, so a negotiation
+    # that reached the retention desk, argued its case and was firmly refused
+    # was shown to the customer in red, indistinguishable from a call that
+    # never connected. Whether a discount was won is what `verified` and the
+    # outcome say; the status says whether the call ran. Only a status webhook
+    # reporting busy/no-answer/failed marks it FAILED.
+    if session.status != NegotiationStatus.FAILED or agreed:
+        session.status = NegotiationStatus.COMPLETED
     await save_session(session)
 
     events.publish(

@@ -11,8 +11,10 @@ import asyncio
 
 import pytest
 
+from app.config import settings
 from app.models import NegotiationSession, NegotiationStatus
 from app.services import verification
+from app.store import get_session, init_db, save_session
 
 
 def _session(**kw) -> NegotiationSession:
@@ -26,14 +28,33 @@ def _session(**kw) -> NegotiationSession:
 
 
 @pytest.fixture(autouse=True)
-def _no_side_effects(monkeypatch):
-    saved = {}
+def _store(isolated_db, monkeypatch):
+    """A real, empty database for each test.
 
-    async def save(session):
-        saved["session"] = session
+    These used to stub save_session, which stopped being enough once the writes
+    went through store.mutate - it re-reads the row inside a lock before
+    writing, precisely so a webhook and the recording pass cannot clobber each
+    other, and there is no way to fake that honestly. An empty SQLite file is
+    cheaper than the pretence.
+    """
+    asyncio.run(init_db())
 
-    monkeypatch.setattr(verification, "save_session", save)
-    return saved
+    real_ingest = verification.ingest_recording
+
+    async def ingest(session, *args, **kwargs):
+        # The session has to exist before it can be mutated in place.
+        await save_session(session)
+        result = await real_ingest(session, *args, **kwargs)
+        # Hand back what was actually persisted, so assertions read the row
+        # rather than the caller's copy of it.
+        stored = await get_session(session.task_id)
+        if stored is not None:
+            for field in stored.model_fields:
+                setattr(session, field, getattr(stored, field))
+        return result
+
+    monkeypatch.setattr(verification, "ingest_recording", ingest)
+    return ingest
 
 
 class TestNeverAnswered:
@@ -85,6 +106,10 @@ class TestTooShortToBeAConversation:
 
     def test_an_unknown_duration_does_not_block_a_real_call(self, monkeypatch):
         """Twilio not sending a duration must not silently skip verification."""
+        # conftest blanks every credential, and verification now stops before
+        # the network when there is no key - which is the point of that guard,
+        # but it would mask what this test is about.
+        monkeypatch.setattr(settings, "assemblyai_api_key", "test-key")
         seen = {"ran": False}
 
         class Boom(Exception):

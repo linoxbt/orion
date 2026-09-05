@@ -43,6 +43,11 @@ def _evict() -> None:
             _replay.pop(task_id, None)
             _last_seen.pop(task_id, None)
 
+    # An empty subscriber set is a call nobody is watching any more; the entry
+    # itself would otherwise outlive every call the process ever served.
+    for task_id in [t for t, subs in _subscribers.items() if not subs]:
+        _subscribers.pop(task_id, None)
+
     while len(_replay) > MAX_TRACKED_CALLS:
         oldest = min(_last_seen, key=_last_seen.get, default=None)
         if oldest is None:

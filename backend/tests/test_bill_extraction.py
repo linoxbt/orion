@@ -346,3 +346,28 @@ class TestModelFallback:
         from app.config import settings
 
         assert settings.gemini_model == settings.gemini_model_chain[0]
+
+
+class TestUploadsAreBounded:
+    """The size check used to happen after the whole file had been read, so a
+    request could spool an unbounded amount to disk before being refused."""
+
+    def test_an_oversized_upload_is_refused(self, client):
+        from app.routers.bills import MAX_BYTES
+
+        res = client.post(
+            "/api/bills/ingest",
+            headers=ADMIN_HEADERS,
+            files={"file": ("huge.pdf", b"x" * (MAX_BYTES + 1024), "application/pdf")},
+        )
+        assert res.status_code == 413
+        assert "file_too_large" in res.json()["detail"]
+
+    def test_an_empty_upload_is_refused(self, client):
+        res = client.post(
+            "/api/bills/ingest",
+            headers=ADMIN_HEADERS,
+            files={"file": ("empty.pdf", b"", "application/pdf")},
+        )
+        assert res.status_code == 422
+        assert res.json()["detail"] == "empty_file"

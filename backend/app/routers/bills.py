@@ -154,7 +154,17 @@ async def ingest_bill(
     # whether or not the server happens to be configured, and telling them
     # "service unavailable" for it sends them chasing the wrong problem.
     mime_type = _mime_for(file)
-    data = await file.read()
+
+    # Refuse on the declared size before reading a byte. Checking after
+    # file.read() meant a request could spool an unbounded amount to disk
+    # first, and only then be told it was too large.
+    declared = file.size if file.size is not None else 0
+    if declared > MAX_BYTES:
+        raise HTTPException(status_code=413, detail="file_too_large: 20MB maximum")
+
+    # A declared size can lie, so the read is bounded as well: one byte past
+    # the cap is enough to know.
+    data = await file.read(MAX_BYTES + 1)
 
     if not data:
         raise HTTPException(status_code=422, detail="empty_file")

@@ -22,8 +22,10 @@ per call; fine at this app's scale, and simpler to reason about than holding
 one connection open for the process lifetime.
 """
 
+import asyncio
 import logging
 import pathlib
+from collections.abc import Callable
 
 import aiosqlite
 
@@ -93,6 +95,53 @@ async def init_db() -> None:
         await db.commit()
 
 
+# One lock per negotiation, so two writers never interleave a read-modify-write
+# on the same row.
+_locks: dict[str, asyncio.Lock] = {}
+
+
+def _lock_for(task_id: str) -> asyncio.Lock:
+    lock = _locks.get(task_id)
+    if lock is None:
+        lock = _locks[task_id] = asyncio.Lock()
+    # The map would otherwise grow with every negotiation the process ever
+    # touched. Locks nobody is holding or waiting on are safe to forget.
+    if len(_locks) > 1000:
+        for key, held in list(_locks.items()):
+            if key != task_id and not held.locked():
+                _locks.pop(key, None)
+    return lock
+
+
+async def mutate(
+    task_id: str, apply: Callable[[NegotiationSession], None]
+) -> NegotiationSession | None:
+    """Read, change and write one negotiation without losing a concurrent write.
+
+    A session is stored as a single JSON document, so every save writes the
+    whole thing. During a live call there are three writers - the agent's
+    tools, Twilio's status webhook, and the recording pass - each holding a
+    copy loaded at a different moment, and the last one to save silently erased
+    whatever the others had recorded. A confirmation number logged mid-call
+    could vanish because a webhook that loaded the session a second earlier
+    wrote "the call ended" over it.
+
+    So the read happens inside the lock, immediately before the write, and
+    `apply` mutates that fresh copy rather than a stale one.
+
+    In-process, therefore per-replica: exact on one instance, and the honest
+    limit of it is written down here rather than assumed away. Postgres row
+    locking is the answer if this ever runs on two.
+    """
+    async with _lock_for(task_id):
+        session = await get_session(task_id)
+        if session is None:
+            return None
+        apply(session)
+        await save_session(session)
+        return session
+
+
 async def save_session(session: NegotiationSession) -> None:
     if supabase_store.is_configured():
         return await supabase_store.save_session(session)
@@ -127,15 +176,21 @@ async def list_sessions(
     if supabase_store.is_configured():
         return await supabase_store.list_sessions(user_id, limit=limit, offset=offset)
 
+    # Scoped in SQL, not after the fact. Fetching the newest hundred rows and
+    # then filtering them in Python meant a user whose negotiations were not in
+    # that hundred - because other people's were - saw an empty dashboard.
     async with aiosqlite.connect(settings.database_path) as db:
-        cursor = await db.execute(
-            "SELECT data FROM negotiations ORDER BY created_at DESC LIMIT ? OFFSET ?",
-            (limit, offset),
-        )
+        if user_id is None:
+            cursor = await db.execute(
+                "SELECT data FROM negotiations ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                (limit, offset),
+            )
+        else:
+            cursor = await db.execute(
+                "SELECT data FROM negotiations "
+                "WHERE json_extract(data, '$.user_id') = ? "
+                "ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                (user_id, limit, offset),
+            )
         rows = await cursor.fetchall()
-    sessions = [NegotiationSession.model_validate_json(row[0]) for row in rows]
-    if user_id is None:
-        return sessions
-    # The SQLite table predates user scoping, so filter in Python rather than
-    # migrating a store that is on its way out.
-    return [s for s in sessions if s.user_id == user_id]
+    return [NegotiationSession.model_validate_json(row[0]) for row in rows]
