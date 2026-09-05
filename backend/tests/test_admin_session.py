@@ -64,6 +64,34 @@ class TestGuessingIsThrottled:
         ]
         assert 429 in codes, f"unlimited guessing allowed: {codes}"
 
+    def test_the_address_comes_from_the_proxy_header(self, client):
+        """Behind Railway's edge every request appears to come from a different
+        address, so keying on request.client never counted past one."""
+        codes = [
+            client.post(
+                "/admin/login",
+                data={"key": f"wrong-{i}"},
+                headers={"X-Forwarded-For": "203.0.113.7, 10.0.0.1"},
+                follow_redirects=False,
+            ).status_code
+            for i in range(8)
+        ]
+        assert 429 in codes, f"per-address limiting did not engage: {codes}"
+
+    def test_rotating_the_address_still_runs_into_the_global_limit(self, client):
+        """X-Forwarded-For is the caller's to set, so a per-address limit alone
+        is a speed bump."""
+        codes = [
+            client.post(
+                "/admin/login",
+                data={"key": f"wrong-{i}"},
+                headers={"X-Forwarded-For": f"198.51.100.{i}"},
+                follow_redirects=False,
+            ).status_code
+            for i in range(30)
+        ]
+        assert 429 in codes, "rotating the address bypassed every limit"
+
     def test_the_limit_does_not_lock_out_a_correct_key_first(self, client):
         res = client.post("/admin/login", data={"key": ADMIN_KEY}, follow_redirects=False)
         assert res.status_code == 303

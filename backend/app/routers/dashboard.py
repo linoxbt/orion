@@ -39,6 +39,22 @@ SESSION_TTL_SECONDS = 30 * 24 * 3600
 COOKIE_MAX_AGE = 30 * 24 * 3600
 
 
+def _client_address(request: Request) -> str:
+    """Who is knocking, as well as this can be known behind a proxy.
+
+    request.client.host is the edge that forwarded the request, and Railway's
+    edge is distributed - so on a real deployment consecutive attempts arrived
+    from different addresses and a per-address limit never counted past one.
+    The leftmost X-Forwarded-For entry is the client's own claim about itself:
+    good enough to separate ordinary callers, worthless against someone
+    deliberately rotating it, which is what the second, global limit is for.
+    """
+    forwarded = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+    if forwarded:
+        return forwarded
+    return request.client.host if request.client else "unknown"
+
+
 def _mint_session(now: float | None = None) -> str:
     """A token derived from the admin key, not the key itself.
 
@@ -347,11 +363,15 @@ async def login(request: Request, response: Response, key: str = Form(...)):
     # it used to accept attempts as fast as they could be sent: no delay, no
     # lockout, nothing logged. Every other endpoint that costs money is
     # limited; the one that opens the door was not.
-    limit(
-        f"admin-login:{request.client.host if request.client else 'unknown'}",
-        max_calls=5,
-        per_seconds=900,
-    )
+    #
+    # Two limits, because either alone is porous. Per address stops the obvious
+    # attack - but the address has to come from X-Forwarded-For behind
+    # Railway's proxy, and that header is the client's to set, so rotating it
+    # would sidestep a per-address limit entirely. The global one cannot be
+    # rotated around. It is generous enough that an operator mistyping their
+    # key a few times never meets it, and low enough that guessing is hopeless.
+    limit(f"admin-login:{_client_address(request)}", max_calls=5, per_seconds=900)
+    limit("admin-login:any", max_calls=20, per_seconds=900)
 
     if not settings.admin_api_key or not hmac.compare_digest(key, settings.admin_api_key):
         logger.warning(
