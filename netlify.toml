@@ -83,7 +83,11 @@
     Cache-Control = "no-cache, no-transform"
     X-Accel-Buffering = "no"
 
-# Security headers.
+# Security headers for statically served files.
+#
+# The pages themselves are rendered by the Next runtime, and these rules do not
+# apply to a function's response - which is why web/next.config.mjs sets the
+# same headers there. Verified by asking the live site for them, not assumed.
 #
 # Netlify sends HSTS and nosniff by default and nothing else, so the app was
 # framable by any site on the internet - a page that holds somebody's account
