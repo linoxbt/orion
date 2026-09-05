@@ -20,6 +20,7 @@ or replayed header proves nothing on its own.
 
 import logging
 
+import httpx
 import jwt
 from fastapi import Depends, Header, HTTPException
 from jwt import PyJWKClient
@@ -94,6 +95,60 @@ async def check_jwks_reachable() -> bool:
             exc,
         )
         return False
+
+
+# What this deployment expects to be. A Dynamic environment carries the name
+# its login emails are sent under, so pointing at the wrong one is invisible in
+# the app and obvious in somebody's inbox - which is exactly how it was found:
+# an Orion login code arrived branded "Devstation", because the environment
+# belonged to another project and was its sandbox besides.
+EXPECTED_DISPLAY_NAME = "Orion"
+EXPECTED_ENVIRONMENT = "live"
+
+
+def settings_url() -> str:
+    """The environment's public settings - the same host as the JWKS."""
+    return f"https://app.dynamic.xyz/api/v0/sdk/{settings.dynamic_environment_id}/settings"
+
+
+async def check_dynamic_environment() -> None:
+    """Say at boot which Dynamic environment this is, and complain if it is the
+    wrong one.
+
+    Never raises and never blocks startup: an unreachable settings endpoint is a
+    diagnostic problem, not a reason to refuse to serve. Sessions are verified
+    against the JWKS regardless, and check_jwks_reachable covers that.
+    """
+    if not settings.dynamic_environment_id:
+        return
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(settings_url(), headers=_JWKS_HEADERS)
+        response.raise_for_status()
+        payload = response.json()
+    except Exception as exc:  # noqa: BLE001 - startup diagnostics
+        logger.warning("Could not read the Dynamic environment's settings: %s", exc)
+        return
+
+    name = ((payload or {}).get("general") or {}).get("displayName")
+    environment = (payload or {}).get("environmentName")
+    logger.info("Dynamic environment: %s (%s)", name, environment)
+
+    if name != EXPECTED_DISPLAY_NAME:
+        logger.warning(
+            "This Dynamic environment is called %r, so login codes are emailed "
+            "under that name rather than %r. Rename it in the Dynamic dashboard.",
+            name,
+            EXPECTED_DISPLAY_NAME,
+        )
+    if environment != EXPECTED_ENVIRONMENT:
+        logger.warning(
+            "This is Dynamic's %r environment, not %r. Production sign-in is "
+            "running on a development environment.",
+            environment,
+            EXPECTED_ENVIRONMENT,
+        )
 
 
 def _verify_dynamic_token(token: str) -> str:

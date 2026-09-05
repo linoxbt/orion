@@ -159,7 +159,7 @@ there.
 
 | Variable | Value |
 | --- | --- |
-| `DYNAMIC_ENVIRONMENT_ID` | From [dynamic.xyz](https://app.dynamic.xyz) → your project → **Developers → SDK & API Keys → Environment ID**. Also set as `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` on the frontend. **Leave it unset and the backend falls back to trusting a header, which turns `ADMIN_API_KEY` into a universal impersonation token.** |
+| `DYNAMIC_ENVIRONMENT_ID` | From [dynamic.xyz](https://app.dynamic.xyz) → your project → **Developers → SDK & API Keys → Environment ID**. Also set as `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` on the frontend. It must be **Orion's own live environment**: the environment carries the name its login emails are sent under and its own user directory, so borrowing another project's - or its sandbox - emails your users somebody else's brand and shares an account pool with it. Check it rather than assuming: `curl -s https://app.dynamic.xyz/api/v0/sdk/$DYNAMIC_ENVIRONMENT_ID/settings \| jq '.general.displayName, .environmentName'` should answer `"Orion"` and `"live"`, and the backend logs the same line at boot. **Leave it unset and the backend falls back to trusting a header, which turns `ADMIN_API_KEY` into a universal impersonation token.** |
 | `ALLOWED_ORIGINS` | Every hostname the frontend is served from, comma-separated, e.g. `https://useorion.xyz,https://app.useorion.xyz,https://docs.useorion.xyz` |
 | `BASE_URL` | Your backend's public URL. Must be reachable from the internet if you use telephony, because it is what the carrier is given for webhooks |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` | See below |

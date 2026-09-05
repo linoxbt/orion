@@ -18,7 +18,7 @@ from app.routers import (
     receipts,
     telephony,
 )
-from app.security import check_jwks_reachable
+from app.security import check_dynamic_environment, check_jwks_reachable
 from app.services import supabase_store
 from app.store import init_db
 
@@ -26,8 +26,10 @@ from app.store import init_db
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
-    # Loud on boot beats a silent 401 for every user.
+    # Loud on boot beats a silent 401 for every user - and beats finding out
+    # which Dynamic environment this is from the branding on a login email.
     await check_jwks_reachable()
+    await check_dynamic_environment()
     yield
     # Release the pooled Supabase connection rather than leaving sockets to the
     # process teardown.
