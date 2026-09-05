@@ -126,7 +126,7 @@ export default function NegotiatePage() {
   return (
     <div>
       <div className="mx-auto max-w-2xl px-6 pb-24">
-        <FadeIn>
+        <FadeIn onMount>
           <header className="py-12">
             <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted">New negotiation</p>
             <h1 className="mt-4 font-display text-[2.4375rem] leading-[1.05] text-ink text-balance">Let Orion make the call.</h1>

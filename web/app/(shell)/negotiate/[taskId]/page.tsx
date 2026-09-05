@@ -126,7 +126,7 @@ export default function NegotiationStatusPage({ params }: { params: Promise<{ ta
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
-      <FadeIn>
+      <FadeIn onMount>
         {/* Header: what this is, and where it stands, on one line. */}
         <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 py-10">
           <div className="min-w-0">
