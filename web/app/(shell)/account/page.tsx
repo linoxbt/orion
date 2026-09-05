@@ -8,11 +8,11 @@ import { Loading } from "@/components/loading";
 import {
   CALL_LANGUAGES,
   getProfile,
-  isAuthError,
   saveProfile,
   type ProfileUpdate,
   type UserProfile,
 } from "@/lib/api";
+import { useSessionExpiry } from "@/lib/use-session-expiry";
 
 // Kept short and common rather than a full ISO list - a 250-entry dropdown is
 // worse than a text field for the handful of countries this actually serves.
@@ -87,6 +87,7 @@ export default function AccountPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const sessionExpired = useSessionExpiry();
 
   const email = user?.email ?? profile?.email ?? null;
 
@@ -97,7 +98,7 @@ export default function AccountPage() {
         setDraft({});
       })
       .catch((err) => {
-        if (isAuthError(err)) return;
+        if (sessionExpired(err)) return;
         setError(
           err instanceof Error && err.message === "supabase_not_configured"
             ? "Profiles aren't connected to the database yet."
@@ -106,7 +107,7 @@ export default function AccountPage() {
               : String(err)
         );
       });
-  }, []);
+  }, [sessionExpired]);
 
   function value(key: keyof ProfileUpdate): string {
     const pending = draft[key];

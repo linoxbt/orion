@@ -354,6 +354,7 @@ the charge button is hidden rather than offered and failing.
 | `NEXT_PUBLIC_API_URL` | required | Backend URL, inlined into the browser bundle |
 | `ADMIN_API_KEY` | required | **Server only.** Never prefix with `NEXT_PUBLIC_` |
 | `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` | required | Public by design |
+| `NEXT_PUBLIC_ROOT_DOMAIN` | required for the three hosts | The apex, e.g. `useorion.xyz`. Unset means every cross-host link falls back to a relative path, which is right locally and wrong in production |
 | `API_URL` | optional | Overrides the upstream for server-side routes only |
 
 Do **not** set `ASSEMBLYAI_API_KEY`, `GEMINI_API_KEY` or `SUPABASE_SERVICE_KEY`

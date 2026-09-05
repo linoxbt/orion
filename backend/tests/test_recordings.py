@@ -39,36 +39,43 @@ class TestPaths:
         assert 0 < recordings.SIGNED_URL_TTL_SECONDS <= 24 * 3600
 
 
-class TestEndpoint:
-    def test_nothing_to_play_before_a_call(self, client, task_id):
-        res = client.get(f"/api/negotiations/{task_id}/recording", headers=HEADERS)
-        assert res.status_code == 200
-        body = res.json()
-        assert body["available"] is False
-        assert body["reason"] == "no_call_yet"
+class TestListening:
+    """Playback goes through /calls now - one entry per dial, each with its own
+    signed link. The single-recording endpoint it replaced has been removed
+    rather than left as a second way in."""
 
-    def test_a_finished_call_says_it_is_still_arriving(self, client, task_id):
+    def _with_recording(self, task_id: str, path: str | None = "owner/abc.mp3") -> None:
         import asyncio
+        from datetime import datetime, timezone
 
+        from app.models import CallAttempt
         from app.store import get_session, save_session
 
         session = asyncio.run(get_session(task_id))
         session.status = NegotiationStatus.COMPLETED
+        session.attempts.append(
+            CallAttempt(
+                call_sid="CA" + "1" * 32,
+                started_at=datetime.now(timezone.utc).isoformat(),
+                answered_at=datetime.now(timezone.utc).isoformat(),
+                recording_path=path,
+            )
+        )
         asyncio.run(save_session(session))
 
-        body = client.get(f"/api/negotiations/{task_id}/recording", headers=HEADERS).json()
-        assert body["available"] is False
-        assert body["reason"] == "awaiting_recording"
+    def test_nothing_to_play_before_a_call(self, client, task_id):
+        res = client.get(f"/api/negotiations/{task_id}/calls", headers=HEADERS)
+        assert res.status_code == 200
+        assert res.json() == []
+
+    def test_a_call_with_no_recording_yet_is_listed_without_a_link(self, client, task_id):
+        self._with_recording(task_id, path=None)
+        [call] = client.get(f"/api/negotiations/{task_id}/calls", headers=HEADERS).json()
+        assert call["url"] is None
+        assert call["answered"] is True
 
     def test_a_stored_recording_is_playable(self, client, task_id, monkeypatch):
-        import asyncio
-
-        from app.store import get_session, save_session
-
-        session = asyncio.run(get_session(task_id))
-        session.status = NegotiationStatus.COMPLETED
-        session.recording_path = "owner/abc.mp3"
-        asyncio.run(save_session(session))
+        self._with_recording(task_id)
 
         async def fake_url(path):
             assert path == "owner/abc.mp3"
@@ -76,22 +83,14 @@ class TestEndpoint:
 
         monkeypatch.setattr(recordings, "playback_url", fake_url)
 
-        body = client.get(f"/api/negotiations/{task_id}/recording", headers=HEADERS).json()
-        assert body["available"] is True
-        assert body["url"] == "https://storage.example/signed"
-        assert body["expires_in"] == recordings.SIGNED_URL_TTL_SECONDS
+        [call] = client.get(f"/api/negotiations/{task_id}/calls", headers=HEADERS).json()
+        assert call["url"] == "https://storage.example/signed"
+        assert call["download_name"].endswith(".mp3")
 
     def test_a_stranger_cannot_listen_to_your_call(self, client, task_id, monkeypatch):
         """The whole point of the ownership check: a recording is a phone call
         about somebody's account."""
-        import asyncio
-
-        from app.store import get_session, save_session
-
-        session = asyncio.run(get_session(task_id))
-        session.recording_path = "owner/abc.mp3"
-        asyncio.run(save_session(session))
-
+        self._with_recording(task_id)
         called = {"n": 0}
 
         async def fake_url(path):
@@ -100,23 +99,45 @@ class TestEndpoint:
 
         monkeypatch.setattr(recordings, "playback_url", fake_url)
 
-        res = client.get(f"/api/negotiations/{task_id}/recording", headers=INTRUDER)
+        res = client.get(f"/api/negotiations/{task_id}/calls", headers=INTRUDER)
         assert res.status_code == 404
         assert called["n"] == 0, "a link must not even be minted for a stranger"
 
-    def test_storage_being_unavailable_is_reported_not_crashed(self, client, task_id, monkeypatch):
-        import asyncio
-
-        from app.store import get_session, save_session
-
-        session = asyncio.run(get_session(task_id))
-        session.recording_path = "owner/abc.mp3"
-        asyncio.run(save_session(session))
+    def test_storage_being_unavailable_leaves_the_call_listed(self, client, task_id, monkeypatch):
+        """The call still happened; only the link is missing."""
+        self._with_recording(task_id)
 
         async def no_url(path):
             return None
 
         monkeypatch.setattr(recordings, "playback_url", no_url)
-        body = client.get(f"/api/negotiations/{task_id}/recording", headers=HEADERS).json()
-        assert body["available"] is False
-        assert body["reason"] == "unavailable"
+
+        [call] = client.get(f"/api/negotiations/{task_id}/calls", headers=HEADERS).json()
+        assert call["url"] is None
+        assert call["call_sid"] == "CA" + "1" * 32
+
+    def test_a_negotiation_from_before_per_dial_attempts_still_shows_its_call(
+        self, client, task_id, monkeypatch
+    ):
+        """Sessions created before attempts existed carry the recording on the
+        session itself, and used to render as "No calls yet" beside audio that
+        plainly existed."""
+        import asyncio
+
+        from app.store import get_session, save_session
+
+        session = asyncio.run(get_session(task_id))
+        session.status = NegotiationStatus.COMPLETED
+        session.call_sid = "CA" + "9" * 32
+        session.recording_path = "owner/legacy.mp3"
+        session.answered_at = "2026-09-01T10:00:00+00:00"
+        asyncio.run(save_session(session))
+
+        async def fake_url(path):
+            return f"https://storage.example/{path}"
+
+        monkeypatch.setattr(recordings, "playback_url", fake_url)
+
+        [call] = client.get(f"/api/negotiations/{task_id}/calls", headers=HEADERS).json()
+        assert call["url"] == "https://storage.example/owner/legacy.mp3"
+        assert call["answered"] is True

@@ -171,7 +171,13 @@ export interface Offer {
 
 // Events pushed from the backend while a call is live - see
 // backend/app/services/events.py for the publishers.
-export type LiveEvent =
+/** Every live event carries a per-call sequence number, so a reader that is
+ * handed the replay buffer again after reconnecting can tell what it has
+ * already seen. */
+type Sequenced = { seq?: number };
+
+export type LiveEvent = Sequenced &
+  (
   | { type: "status"; status: string; backend?: string; reason?: string }
   // Twilio's own view of the call: ringing, in-progress, completed, busy,
   // no-answer, failed, canceled. The screen follows this rather than assuming
@@ -197,8 +203,8 @@ export type LiveEvent =
       has_authority: boolean;
       advice: string;
     }
-  | { type: "escalation_sent"; channels: string[] }
-  | { type: "error"; message: string };
+    | { type: "escalation_sent"; channels: string[] }
+    | { type: "error"; message: string });
 
 import { authHeaders } from "./auth-client";
 
@@ -450,14 +456,6 @@ export async function listCalls(taskId: string): Promise<CallRecord[]> {
   return handle<CallRecord[]>(res);
 }
 
-/** Where to play a finished call back from.
- *
- * The link is signed and short-lived, so it is fetched when the player is
- * opened rather than stored with the negotiation. */
-export async function getRecording(taskId: string): Promise<CallRecording> {
-  const res = await fetch(`/api/negotiations/${taskId}/recording`, { headers: authHeaders() });
-  return handle<CallRecording>(res);
-}
 
 /** End a call that is still running.
  *
@@ -480,6 +478,12 @@ export function subscribeToNegotiationEvents(
   // keeps it in an Authorization header like every other call.
   const controller = new AbortController();
   let attempt = 0;
+  // The backend replays what it has already sent to every new subscriber, so a
+  // reader that reconnects mid-call - which happens about once a minute, since
+  // the platform cuts the function - was handed the whole conversation again
+  // and appended a second copy of it. Each event carries a per-call sequence
+  // number; anything at or below the highest already seen has been seen.
+  let lastSeq = 0;
 
   const read = async (): Promise<void> => {
     try {
@@ -510,7 +514,13 @@ export function subscribeToNegotiationEvents(
           for (const rawLine of frame.split("\n")) {
             if (!rawLine.startsWith("data:")) continue;
             try {
-              onEvent(JSON.parse(rawLine.slice(5).trim()) as LiveEvent);
+              const event = JSON.parse(rawLine.slice(5).trim()) as LiveEvent;
+              const seq = typeof event.seq === "number" ? event.seq : null;
+              if (seq !== null) {
+                if (seq <= lastSeq) continue;
+                lastSeq = seq;
+              }
+              onEvent(event);
             } catch {
               // A malformed frame shouldn't tear down a live transcript.
             }

@@ -29,6 +29,12 @@ REPLAY_TTL_SECONDS = 60 * 60
 # A hard ceiling as well as a TTL, so a burst can't outrun expiry.
 MAX_TRACKED_CALLS = 500
 
+# A per-call counter stamped onto every event. The replay buffer is delivered
+# again to every new subscriber, and a browser reconnects repeatedly during a
+# call - the platform cuts the stream about once a minute - so without a
+# sequence number the transcript grew a fresh copy of itself each time.
+_sequence: dict[str, int] = defaultdict(int)
+
 _subscribers: dict[str, set[asyncio.Queue]] = defaultdict(set)
 _replay: dict[str, deque] = defaultdict(lambda: deque(maxlen=REPLAY_LIMIT))
 _last_seen: dict[str, float] = {}
@@ -42,6 +48,7 @@ def _evict() -> None:
         if not _subscribers.get(task_id):
             _replay.pop(task_id, None)
             _last_seen.pop(task_id, None)
+            _sequence.pop(task_id, None)
 
     # An empty subscriber set is a call nobody is watching any more; the entry
     # itself would otherwise outlive every call the process ever served.
@@ -54,12 +61,18 @@ def _evict() -> None:
             break
         _replay.pop(oldest, None)
         _last_seen.pop(oldest, None)
+        _sequence.pop(oldest, None)
 
 
 def publish(task_id: str, event: dict[str, Any]) -> None:
     """Fan an event out to every live subscriber. Never blocks and never raises -
     a stalled browser must not be able to wedge an in-progress phone call.
+
+    Each event is stamped with a per-call sequence number so a reader that has
+    seen it before - on a replay after reconnecting - can tell.
     """
+    _sequence[task_id] += 1
+    event = {**event, "seq": _sequence[task_id]}
     _replay[task_id].append(event)
     _last_seen[task_id] = time.monotonic()
     _evict()
@@ -92,6 +105,7 @@ def history(task_id: str) -> list[dict[str, Any]]:
 def clear(task_id: str) -> None:
     _replay.pop(task_id, None)
     _last_seen.pop(task_id, None)
+    _sequence.pop(task_id, None)
 
 
 def tracked_calls() -> int:

@@ -30,6 +30,12 @@
   # web/lib/auth.ts, which verifies the signed session JWT against Dynamic's
   # JWKS before any privileged route uses the admin key.
   NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID = "f3e8d79d-80c3-4332-b740-39c22eef6428"
+  # The apex the three hosts hang off. Without it every cross-host link falls
+  # back to a relative path, so "Sign in" keeps you on the marketing site and
+  # the docs link never leaves it - a silent regression with no error anywhere.
+  # It lived only in the Netlify UI, which meant a fresh clone or a new site
+  # quietly built a single-host app.
+  NEXT_PUBLIC_ROOT_DOMAIN = "useorion.xyz"
 
 # Deploy Previews and branch builds get the same backend. Split this out if a
 # staging backend ever exists.
@@ -41,6 +47,9 @@
   # web/lib/auth.ts, which verifies the signed session JWT against Dynamic's
   # JWKS before any privileged route uses the admin key.
   NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID = "f3e8d79d-80c3-4332-b740-39c22eef6428"
+  # Deliberately no NEXT_PUBLIC_ROOT_DOMAIN here: a preview build that linked
+  # to app.useorion.xyz would send anyone testing it into production. Without
+  # it the links stay relative, which keeps a preview inside itself.
 
 [context.branch-deploy.environment]
   NEXT_PUBLIC_API_URL = "https://backend-production-cf6d9.up.railway.app"
@@ -50,6 +59,9 @@
   # web/lib/auth.ts, which verifies the signed session JWT against Dynamic's
   # JWKS before any privileged route uses the admin key.
   NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID = "f3e8d79d-80c3-4332-b740-39c22eef6428"
+  # Deliberately no NEXT_PUBLIC_ROOT_DOMAIN here: a preview build that linked
+  # to app.useorion.xyz would send anyone testing it into production. Without
+  # it the links stay relative, which keeps a preview inside itself.
 
 # SECRET - set in the Netlify UI only (Site configuration -> Environment
 # variables), never here, because this file is committed:
@@ -70,3 +82,21 @@
   [headers.values]
     Cache-Control = "no-cache, no-transform"
     X-Accel-Buffering = "no"
+
+# Security headers.
+#
+# Netlify sends HSTS and nosniff by default and nothing else, so the app was
+# framable by any site on the internet - a page that holds somebody's account
+# details, address and the button that places a phone call on their behalf.
+#
+# The CSP is deliberately loose on script-src: Next.js ships inline bootstrap
+# scripts and Dynamic loads its widget from its own origin, so tightening this
+# further needs nonces and a real test pass rather than a guess.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), geolocation=(), payment=(), microphone=(self)"
+    Cross-Origin-Opener-Policy = "same-origin"

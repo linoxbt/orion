@@ -4,12 +4,12 @@ import Link from "next/link";
 import { Loading } from "@/components/loading";
 import { useEffect, useState } from "react";
 import {
-  isAuthError,
   listNegotiations,
   listRenewals,
   type NegotiationSession,
   type Renewal,
 } from "@/lib/api";
+import { useSessionExpiry } from "@/lib/use-session-expiry";
 
 function truncate(value: string, head = 8, tail = 4): string {
   if (value.length <= head + tail + 1) return value;
@@ -31,6 +31,7 @@ export default function DashboardPage() {
   const [items, setItems] = useState<NegotiationSession[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [renewals, setRenewals] = useState<Renewal[]>([]);
+  const sessionExpired = useSessionExpiry();
 
   useEffect(() => {
     listRenewals()
@@ -42,11 +43,12 @@ export default function DashboardPage() {
     listNegotiations()
       .then(setItems)
       .catch((err) => {
-        // A dead session is the AuthGate's problem, not an error to show.
-        if (isAuthError(err)) return;
+        // A dead session sends the person to sign in again. Returning quietly
+        // left this page on its loading state for good.
+        if (sessionExpired(err)) return;
         setError(err instanceof Error ? err.message : String(err));
       });
-  }, []);
+  }, [sessionExpired]);
 
   // Seeded examples are shown, so a new account is not an empty page, but they
   // are never counted. A worked example carrying a plausible saving would

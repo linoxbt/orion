@@ -16,6 +16,9 @@ import { createBrowserSession, recordAgentTranscript, runAgentTool } from "./api
 
 const AGENTS_WS = "wss://agents.assemblyai.com/v1/ws";
 const SAMPLE_RATE = 24000;
+// How long to let a closing line finish playing before the session is closed.
+// The same beat the phone path leaves for a goodbye.
+const GOODBYE_MS = 3000;
 
 /** What a person does when the other end goes quiet.
  *
@@ -263,12 +266,18 @@ export class BrowserAgentCall {
           // Fall through with the default; a failed tool must not end the call.
         }
         this.callbacks.onTool?.(message.name ?? "", args, result);
-        // Held until reply.done, so a barge-in discards it.
         this.pendingTools.push({
           type: "tool.result",
           call_id: message.call_id ?? "",
           result,
         });
+        // The agent decided the conversation is finished. On a phone call the
+        // line is hung up; here the session is what costs money for as long as
+        // it stays open, and it used to stay open until the silence ladder ran
+        // out or somebody pressed End. Long enough for the goodbye to play.
+        if (message.name === "end_call") {
+          setTimeout(() => void this.stop(), GOODBYE_MS);
+        }
         break;
       }
 
