@@ -112,6 +112,11 @@ export const CALL_LANGUAGES: { code: string; label: string }[] = [
   { code: "he", label: "Hebrew" },
   { code: "ja", label: "Japanese" },
   { code: "zh", label: "Chinese" },
+  // The backend recognises 18 natively; these three were simply missing here,
+  // so the picker offered 15 of them.
+  { code: "no", label: "Norwegian" },
+  { code: "da", label: "Danish" },
+  { code: "fi", label: "Finnish" },
 ];
 
 export interface Playbook {

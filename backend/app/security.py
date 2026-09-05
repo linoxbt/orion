@@ -50,7 +50,7 @@ _jwks_client: PyJWKClient | None = None
 # PyJWKClient fetches over urllib, and Dynamic's edge answers 403 to its default
 # User-Agent. Without this every token verification fails and every signed-in
 # user gets a 401 - the whole application, not a corner of it.
-_JWKS_HEADERS = {"User-Agent": "Orion/1.0 (+https://orionbuild.netlify.app)"}
+_JWKS_HEADERS = {"User-Agent": "Orion/1.0 (+https://useorion.xyz)"}
 
 
 def jwks_url() -> str:

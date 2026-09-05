@@ -11,7 +11,7 @@ and reports only what that recording actually supports.
 Built on [AssemblyAI](https://www.assemblyai.com) for the live voice agent and
 the post-call verification pass.
 
-**Live:** [orionbuild.netlify.app](https://orionbuild.netlify.app)
+**Live:** [useorion.xyz](https://useorion.xyz) · app: [app.useorion.xyz](https://app.useorion.xyz) · docs: [docs.useorion.xyz](https://docs.useorion.xyz)
 
 ---
 
@@ -28,7 +28,8 @@ the post-call verification pass.
 - [Project layout](#project-layout)
 - [Current status](#current-status)
 
-Submitting it? **[SUBMISSION.md](SUBMISSION.md)** has the copy, tags and video script.
+Submitting it? **[SUBMISSION.md](SUBMISSION.md)** has the copy and tags, and
+**[VIDEO-SCRIPT.md](VIDEO-SCRIPT.md)** has the video script.
 
 Setting it up? **[REQUIREMENTS.md](REQUIREMENTS.md)** lists every key, what it unlocks, and step by step how to get it.
 
@@ -229,7 +230,7 @@ If you find something, open an issue rather than a pull request.
 ## Testing
 
 ```bash
-cd backend && uv run pytest        # 250 tests
+cd backend && uv run pytest        # 416 tests
 cd web && npm test                 # 39 tests
 cd web && npx tsc --noEmit && npx eslint .
 ```

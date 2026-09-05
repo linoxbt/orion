@@ -160,7 +160,7 @@ there.
 | Variable | Value |
 | --- | --- |
 | `DYNAMIC_ENVIRONMENT_ID` | From [dynamic.xyz](https://app.dynamic.xyz) → your project → **Developers → SDK & API Keys → Environment ID**. Also set as `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` on the frontend. **Leave it unset and the backend falls back to trusting a header, which turns `ADMIN_API_KEY` into a universal impersonation token.** |
-| `ALLOWED_ORIGINS` | Your frontend's real URL, e.g. `https://orionbuild.netlify.app` |
+| `ALLOWED_ORIGINS` | Every hostname the frontend is served from, comma-separated, e.g. `https://useorion.xyz,https://app.useorion.xyz,https://docs.useorion.xyz` |
 | `BASE_URL` | Your backend's public URL. Must be reachable from the internet if you use telephony, because it is what the carrier is given for webhooks |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` | See below |
 

@@ -269,7 +269,7 @@ def _render(d: dict[str, Any]) -> str:
     out.append(
         '<footer><span>Orion protocol control. Every figure is read live; '
         'nothing here is estimated.</span>'
-        '<span><a href="https://orionbuild.netlify.app">application</a> &middot; '
+        '<span><a href="https://app.useorion.xyz">application</a> &middot; '
         '<a href="/docs">API reference</a></span></footer></div>'
     )
     return "".join(out)

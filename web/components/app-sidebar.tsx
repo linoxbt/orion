@@ -22,9 +22,10 @@ import { UserChip } from "./auth/user-chip";
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/negotiate", label: "New negotiation", icon: PhoneCall },
-  { href: docsHref("/"), label: "Docs", icon: BookOpen },
   { href: "/billing", label: "Billing", icon: CreditCard },
   { href: "/account", label: "Account", icon: UserRound },
+  // Last, and on another hostname: it is the only link that leaves the app.
+  { href: docsHref("/"), label: "Docs", icon: BookOpen },
 ];
 
 function NavLinks({ collapsed, onNavigate, ariaLabel }: { collapsed: boolean; onNavigate?: () => void; ariaLabel: string }) {
