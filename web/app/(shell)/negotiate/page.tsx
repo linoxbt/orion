@@ -125,17 +125,17 @@ export default function NegotiatePage() {
 
   return (
     <div>
-      <div className="mx-auto max-w-2xl px-6 pb-24">
+      <div className="mx-auto max-w-2xl pb-24">
         <FadeIn onMount>
-          <header className="py-12">
+          <header className="py-8 sm:py-12">
             <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted">New negotiation</p>
-            <h1 className="mt-4 font-display text-[2.4375rem] leading-[1.05] text-ink text-balance">Let Orion make the call.</h1>
+            <h1 className="mt-4 font-display text-[1.875rem] leading-[1.05] text-ink text-balance sm:text-[2.4375rem]">Let Orion make the call.</h1>
             <p className="mt-4 text-[14px] leading-relaxed text-ink-soft">
               Upload a bill, confirm the details, authorise the call.
             </p>
           </header>
 
-          <section className="rounded border border-line bg-surface p-6">
+          <section className="rounded-lg border border-line bg-surface p-5 sm:p-7">
             <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.22em] text-muted">1. Upload your bill</p>
             <input
               type="file"
@@ -171,7 +171,7 @@ export default function NegotiatePage() {
             {extraction && <ExtractionSummary extraction={extraction} />}
           </section>
 
-          <form onSubmit={handleStart} className="mt-6 rounded border border-line bg-surface p-6">
+          <form onSubmit={handleStart} className="mt-6 rounded-lg border border-line bg-surface p-5 sm:p-7">
             <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.22em] text-muted">2. Confirm & start</p>
 
             <label className="block text-sm">

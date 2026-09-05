@@ -221,11 +221,11 @@ export function OutboundCall({
   }
 
   return (
-    <section className="rounded-lg border border-line bg-surface p-6 sm:p-7">
+    <section className="rounded-lg border border-line bg-surface p-5 sm:p-7">
       <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-muted">
         The real call
       </p>
-      <h2 className="mt-3 font-display text-[1.5375rem] leading-snug text-ink">
+      <h2 className="mt-3 font-display text-[1.375rem] leading-snug text-ink sm:text-[1.5375rem]">
         Have Orion call {session.provider}
       </h2>
       <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink-soft">

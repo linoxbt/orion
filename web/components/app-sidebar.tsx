@@ -8,7 +8,6 @@ import {
   PhoneCall,
   BookOpen,
   CreditCard,
-  Settings,
   UserRound,
   PanelLeftClose,
   PanelLeft,
@@ -23,10 +22,9 @@ import { UserChip } from "./auth/user-chip";
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/negotiate", label: "New negotiation", icon: PhoneCall },
-  { href: docsHref("/"), label: "How it works", icon: BookOpen },
+  { href: docsHref("/"), label: "Docs", icon: BookOpen },
   { href: "/billing", label: "Billing", icon: CreditCard },
   { href: "/account", label: "Account", icon: UserRound },
-  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 function NavLinks({ collapsed, onNavigate, ariaLabel }: { collapsed: boolean; onNavigate?: () => void; ariaLabel: string }) {
@@ -149,7 +147,7 @@ function MobileDrawer() {
         role="dialog"
         aria-modal="true"
         aria-label="Mobile navigation"
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-line bg-surface px-4 py-6 transition-transform duration-200 md:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col overflow-y-auto border-r border-line bg-surface px-4 py-6 transition-transform duration-200 md:hidden ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -163,12 +161,14 @@ function MobileDrawer() {
         </div>
         <p className="mb-3 px-3 font-mono text-[9px] uppercase tracking-[0.22em] text-muted">Menu</p>
         <NavLinks collapsed={false} onNavigate={closeMobile} ariaLabel="Mobile primary" />
-        <div className="mt-auto flex flex-col gap-3 pt-8">
-          <div className="flex flex-col gap-1">
-            <Link href={siteHref("/")} className="font-mono text-xs text-muted hover:text-ink">
-              ← Back to site
-            </Link>
-          </div>
+
+        {/* Sign out lives here on a phone. It was only ever in the desktop
+            rail, so on mobile there was no way out of the app at all. */}
+        <div className="mt-auto flex flex-none flex-col gap-3 pt-8">
+          <UserChip collapsed={false} />
+          <Link href={siteHref("/")} className="font-mono text-xs text-muted hover:text-ink">
+            ← Back to site
+          </Link>
         </div>
       </aside>
     </>

@@ -62,19 +62,15 @@ export function AccountDetailsForm({ taskId }: { taskId: string }) {
   }
 
   return (
-    <section className="rounded-lg border border-line bg-surface p-6 sm:p-7">
-      <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-muted">
-        Account verification
+    // No card of its own: this lives inside a tab on the negotiation page, and
+    // the tab strip is already the heading.
+    <div>
+      <p className="text-[13px] leading-relaxed text-ink-soft">
+        The answers a rep will ask for. Without them the call ends at verification.
       </p>
-      <h2 className="mt-3 font-display text-[1.5375rem] leading-snug text-ink">
-        What the representative will ask you to confirm
-      </h2>
-      <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink-soft">
-      The answers a rep will ask for. Without them the call ends at verification.
-    </p>
 
       {onFile !== null && onFile.length > 0 && (
-        <p className="mt-5 rounded border border-line bg-surface-2 px-4 py-3 text-[13px] text-ink-soft">
+        <p className="mt-4 rounded border border-line bg-surface-2 px-4 py-3 text-[13px] text-ink-soft">
           On file:{" "}
           <span className="text-ink">
             {onFile.map((f) => f.replace(/_/g, " ")).join(", ")}
@@ -83,7 +79,7 @@ export function AccountDetailsForm({ taskId }: { taskId: string }) {
         </p>
       )}
 
-      <form onSubmit={handleSave} className="mt-6 grid gap-5 sm:grid-cols-2">
+      <form onSubmit={handleSave} className="mt-5 grid gap-4">
         {FIELDS.map((field) => (
           <label key={field.key} className="block">
             <span className="text-[13px] text-ink-soft">{field.label}</span>
@@ -98,7 +94,7 @@ export function AccountDetailsForm({ taskId }: { taskId: string }) {
           </label>
         ))}
 
-        <div className="sm:col-span-2">
+        <div>
           <button
             type="submit"
             disabled={saving}
@@ -113,6 +109,6 @@ export function AccountDetailsForm({ taskId }: { taskId: string }) {
         </p>
         </div>
       </form>
-    </section>
+    </div>
   );
 }

@@ -10,6 +10,7 @@ import { BrowserCall } from "@/components/browser-call";
 import { ConsentForm } from "@/components/consent-form";
 import { OutboundCall } from "@/components/outbound-call";
 import { CallHistory } from "@/components/call-history";
+import { Tabs } from "@/components/tabs";
 import {
   ApiError,
   chargeNegotiation,
@@ -113,7 +114,7 @@ export default function NegotiationStatusPage({ params }: { params: Promise<{ ta
 
   if (!session) {
     return (
-      <div className="mx-auto max-w-6xl px-6 py-24">
+      <div className="mx-auto max-w-6xl py-24">
         {error ? <p className="text-[14px] text-fail">{error}</p> : <Loading label="Opening negotiation" />}
       </div>
     );
@@ -125,10 +126,10 @@ export default function NegotiationStatusPage({ params }: { params: Promise<{ ta
       : null;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
+    <div className="mx-auto max-w-6xl pb-24">
       <FadeIn onMount>
         {/* Header: what this is, and where it stands, on one line. */}
-        <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 py-10">
+        <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 py-8 sm:py-10">
           <div className="min-w-0">
             <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted">
               <Link href="/dashboard" className="transition-colors hover:text-ink">
@@ -137,7 +138,7 @@ export default function NegotiationStatusPage({ params }: { params: Promise<{ ta
               <span className="px-2 text-line">/</span>
               {session.vertical.replace(/_/g, " ")}
             </p>
-            <h1 className="mt-3 truncate font-display text-[2.0625rem] leading-[1.05] text-ink">
+            <h1 className="mt-3 truncate font-display text-[1.75rem] leading-[1.05] text-ink sm:text-[2.0625rem]">
               {session.provider}
             </h1>
             <p className="tabular mt-2 font-mono text-[11px] text-muted">
@@ -189,9 +190,9 @@ export default function NegotiationStatusPage({ params }: { params: Promise<{ ta
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)] lg:items-start">
           {/* Left: what is happening, and what happened. */}
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             {session.recommendation && (
-              <section className="rounded-lg border border-accent/40 bg-accent-soft p-6 sm:p-7">
+              <section className="rounded-lg border border-accent/40 bg-accent-soft p-5 sm:p-7">
                 <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-accent">
                   What Orion makes of it
                 </p>
@@ -217,70 +218,102 @@ export default function NegotiationStatusPage({ params }: { params: Promise<{ ta
             {!session.verified && <BrowserCall taskId={taskId} contact={session.provider} />}
           </div>
 
-          {/* Right: the record, and the things done to it. Sticky on a wide
-              screen so the figures stay beside whichever call is being read. */}
-          <div className="space-y-6 lg:sticky lg:top-6">
-            <Panel eyebrow="Record" title="The details">
-              <Rows
-                rows={[
-                  ["Provider", session.provider],
-                  ["Number called", session.phone_number],
-                  ["Account type", session.vertical.replace(/_/g, " ")],
-                  ["Outcome", session.outcome ?? "—"],
-                  ["Confirmation #", session.confirmation_number ?? "—"],
-                  ["Previous rate", session.previous_rate != null ? `${money(session.previous_rate)}/mo` : "—"],
-                  ["New rate", session.new_rate != null ? `${money(session.new_rate)}/mo` : "—"],
-                  [
-                    "Success fee",
-                    session.fee_amount_cents != null
-                      ? money(session.fee_amount_cents / 100)
-                      : "not charged",
-                  ],
-                  ["Reference", session.task_id],
-                ]}
-              />
-            </Panel>
-
-            {!session.verified && <AccountDetailsForm taskId={taskId} />}
-
-            {!session.verified && (
-              <Panel eyebrow="Manual entry" title="Record the outcome yourself">
-                <p className="mt-3 text-[13px] leading-relaxed text-ink-soft">
-                  Orion writes this from the recording. Fill it in only where a call happened
-                  outside Orion.
-                </p>
-                <form onSubmit={handleComplete} className="mt-5 space-y-4">
-                  <Field
-                    label="Outcome"
-                    value={outcome}
-                    onChange={setOutcome}
-                    required
-                    placeholder="e.g. reduced rate"
-                  />
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field
-                      label="Was ($/mo)"
-                      value={previousRate}
-                      onChange={setPreviousRate}
-                      type="number"
+          {/* Right: the record, and the things done to it. Tabbed, because the
+              verification answers and a hand-typed outcome are things you fill
+              in once and then never look at, and both open at once buried the
+              record itself. Sticky on a wide screen so the figures stay beside
+              whichever call is being read. */}
+          <div className="min-w-0 space-y-6 lg:sticky lg:top-6">
+            <Tabs
+              tabs={[
+                {
+                  id: "record",
+                  label: "Record",
+                  render: () => (
+                    <Rows
+                      rows={[
+                        ["Provider", session.provider],
+                        ["Number called", session.phone_number],
+                        ["Account type", session.vertical.replace(/_/g, " ")],
+                        ["Outcome", session.outcome ?? "—"],
+                        ["Confirmation #", session.confirmation_number ?? "—"],
+                        [
+                          "Previous rate",
+                          session.previous_rate != null ? `${money(session.previous_rate)}/mo` : "—",
+                        ],
+                        ["New rate", session.new_rate != null ? `${money(session.new_rate)}/mo` : "—"],
+                        [
+                          "Success fee",
+                          session.fee_amount_cents != null
+                            ? money(session.fee_amount_cents / 100)
+                            : "not charged",
+                        ],
+                        ["Reference", session.task_id],
+                      ]}
                     />
-                    <Field label="Now ($/mo)" value={newRate} onChange={setNewRate} type="number" />
-                  </div>
-                  <Field
-                    label="Confirmation number"
-                    value={confirmationNumber}
-                    onChange={setConfirmationNumber}
-                  />
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="w-full rounded bg-accent px-4 py-2.5 text-[13px] font-medium text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-40"
-                  >
-                    {submitting ? "Saving…" : "Mark verified"}
-                  </button>
-                </form>
-              </Panel>
-            )}
+                  ),
+                },
+                // Both of these are only worth showing while the outcome is
+                // still open. Once it is verified there is nothing to verify
+                // with and nothing left to record.
+                ...(session.verified
+                  ? []
+                  : [
+                      {
+                        id: "verification",
+                        label: "Verification",
+                        render: () => <AccountDetailsForm taskId={taskId} />,
+                      },
+                      {
+                        id: "outcome",
+                        label: "Outcome",
+                        render: () => (
+                          <>
+                            <p className="text-[13px] leading-relaxed text-ink-soft">
+                              Orion writes this from the recording. Fill it in only where a call
+                              happened outside Orion.
+                            </p>
+                            <form onSubmit={handleComplete} className="mt-5 space-y-4">
+                              <Field
+                                label="Outcome"
+                                value={outcome}
+                                onChange={setOutcome}
+                                required
+                                placeholder="e.g. reduced rate"
+                              />
+                              <div className="grid grid-cols-2 gap-3">
+                                <Field
+                                  label="Was ($/mo)"
+                                  value={previousRate}
+                                  onChange={setPreviousRate}
+                                  type="number"
+                                />
+                                <Field
+                                  label="Now ($/mo)"
+                                  value={newRate}
+                                  onChange={setNewRate}
+                                  type="number"
+                                />
+                              </div>
+                              <Field
+                                label="Confirmation number"
+                                value={confirmationNumber}
+                                onChange={setConfirmationNumber}
+                              />
+                              <button
+                                type="submit"
+                                disabled={submitting}
+                                className="w-full rounded bg-accent px-4 py-2.5 text-[13px] font-medium text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-40"
+                              >
+                                {submitting ? "Saving…" : "Mark verified"}
+                              </button>
+                            </form>
+                          </>
+                        ),
+                      },
+                    ]),
+              ]}
+            />
 
             {/* Only where a card processor is actually connected: without one
                 this button could never answer anything but a 503. */}
@@ -320,7 +353,7 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-line bg-surface p-6 sm:p-7">
+    <section className="rounded-lg border border-line bg-surface p-5 sm:p-7">
       <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-muted">{eyebrow}</p>
       <h2 className="mt-3 font-display text-[1.375rem] leading-snug text-ink">{title}</h2>
       {children}
@@ -393,10 +426,10 @@ function Kpi({
   tone?: "good";
 }) {
   return (
-    <div className="bg-surface p-5">
+    <div className="min-w-0 bg-surface p-4 sm:p-5">
       <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted">{label}</p>
       <p
-        className={`tabular mt-3 text-[1.625rem] font-medium leading-none tracking-tight ${
+        className={`tabular mt-3 text-[1.375rem] font-medium leading-none tracking-tight sm:text-[1.625rem] ${
           tone === "good" ? "text-pass" : "text-ink"
         }`}
       >

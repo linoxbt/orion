@@ -408,7 +408,7 @@ export default function HomePage() {
           {[
             { head: "Product", links: [["Start a negotiation", appHref("/negotiate")], ["Dashboard", appHref("/dashboard")], ["Billing", appHref("/billing")]] },
             { head: "Learn", links: [["How it works", docsHref("/")], ["The playbooks", docsHref("/playbooks")], ["Authorisation", docsHref("/authorisation")]] },
-            { head: "Account", links: [["Sign in", appHref("/login")], ["Your account", appHref("/account")], ["Settings", appHref("/settings")]] },
+            { head: "Account", links: [["Sign in", appHref("/login")], ["Your account", appHref("/account")], ["Billing", appHref("/billing")]] },
           ].map((col) => (
             <div key={col.head}>
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--l-muted)]">

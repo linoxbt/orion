@@ -13,7 +13,7 @@ app/security.py's require_user_id for why that identity can be trusted.
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models import UserProfile
 from app.security import require_user_id
@@ -30,7 +30,13 @@ class ProfileUpdate(BaseModel):
 
     email: str | None = None
     full_name: str | None = None
-    avatar_url: str | None = None
+
+    # The profile picture arrives as a data: URL - the browser scales it to
+    # 320px and encodes it, so there is no bucket to configure and no public
+    # object to leak. The ceiling is what stops that convenience turning into
+    # somebody storing a 12 megapixel photograph in a database column; a 320px
+    # JPEG lands around 20KB, well under it.
+    avatar_url: str | None = Field(default=None, max_length=200_000)
     phone: str | None = None
     country: str | None = None
     address_line1: str | None = None
