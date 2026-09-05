@@ -35,6 +35,16 @@ are the audit's own. Anything still open says why, and whose it is to close.
 | M7 | Low | `CallAttempt.transcript_id` was never written | Written with the transcript |
 | M8 | Low | Stale test counts in the docs | Regenerated from the suites |
 
+## Found while verifying the fixes
+
+Two of the fixes above were wrong on the first attempt, and only checking them
+against production showed it. Both are now verified live rather than assumed.
+
+| Finding | What was wrong | Fix |
+| --- | --- | --- |
+| S1, first attempt | Seven wrong keys in a row still answered 200. `request.client.host` is Railway's edge, which is distributed, so consecutive attempts looked like different callers and the counter never reached two | The address comes from `X-Forwarded-For`, plus a global limit that rotating that header cannot get around. Live: five attempts, then 429 |
+| S5, first attempt | The `netlify.toml` header rules applied to statically served files, not to pages rendered by the Next runtime - the deployed site still answered with nothing but HSTS and nosniff | Set in `next.config.mjs`, where Next applies them to every response. Live: CSP, X-Frame-Options, Referrer-Policy and Permissions-Policy all present |
+
 ## Open
 
 | # | Severity | Finding | Why it is still open |
