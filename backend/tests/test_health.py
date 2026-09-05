@@ -24,6 +24,9 @@ def test_capabilities_report_everything_unconfigured_under_test(client):
         "hasGemini": False,
         "hasTwilio": False,
         "hasStripe": False,
+        # Neither SendGrid nor a WhatsApp sender, so a mid-call escalation
+        # could not actually be delivered to anyone.
+        "hasEscalation": False,
         # No Dynamic environment under test, so sessions cannot be verified.
         "sessionsVerifiable": False,
         # No Supabase under test either.

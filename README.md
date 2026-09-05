@@ -230,8 +230,8 @@ If you find something, open an issue rather than a pull request.
 ## Testing
 
 ```bash
-cd backend && uv run pytest        # 416 tests
-cd web && npm test                 # 39 tests
+cd backend && uv run pytest        # 457 tests
+cd web && npm test                 # 63 tests
 cd web && npx tsc --noEmit && npx eslint .
 ```
 

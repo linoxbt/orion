@@ -96,7 +96,7 @@ ownership on every route, signature-checked telephony webhooks, an HMAC-signed
 media stream, Fernet-encrypted verification details, Supabase persistence, call
 recordings archived to private storage and served through expiring signed
 links, and metered billing on Paystack at five bills a month free or fifty
-cents a month for unlimited. 455 tests across both halves, and two full
+cents a month for unlimited. 520 tests across both halves, and two full
 security audits with every finding closed.
 
 **Try it**

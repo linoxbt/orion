@@ -35,5 +35,10 @@ async def capabilities() -> dict:
             "hasGemini": bool(settings.gemini_api_key),
             "hasTwilio": bool(settings.twilio_account_sid and settings.twilio_auth_token),
             "hasStripe": bool(settings.stripe_secret_key),
+            # Whether escalate_to_human can actually reach anybody. The tool
+            # exists either way and is honest with the agent when it cannot,
+            # but the account page should not invite somebody to enter a
+            # number that nothing will ever message.
+            "hasEscalation": bool(settings.sendgrid_api_key or settings.twilio_whatsapp_from),
         },
     }

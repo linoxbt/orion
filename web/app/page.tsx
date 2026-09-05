@@ -66,7 +66,7 @@ const TOOLS = [
   { tag: "press_keys", title: "It gets through the menu.", body: "Synthesised tones, so an automated switchboard is an obstacle rather than a wall." },
   { tag: "provide_verification", title: "It answers, one field at a time.", body: "A single encrypted detail released only when a representative actually asks for it." },
   { tag: "record_confirmation_number", title: "It captures the reference.", body: "The number a saving depends on, taken down the moment it is read out." },
-  { tag: "escalate_to_human", title: "It knows when to stop.", body: "Asked something it cannot verify, it messages you while the call is still live." },
+  { tag: "escalate_to_human", title: "It knows when to stop.", body: "Asked something it cannot verify, it stops and hands the call back to you." },
 ];
 
 const BEHAVIOUR = [

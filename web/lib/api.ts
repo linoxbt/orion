@@ -13,6 +13,8 @@ export interface HealthCapabilities {
   hasGemini: boolean;
   hasTwilio: boolean;
   hasStripe: boolean;
+  /** Whether a mid-call escalation can actually be delivered. */
+  hasEscalation: boolean;
 }
 
 export interface Health {

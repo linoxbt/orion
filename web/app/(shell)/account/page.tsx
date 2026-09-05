@@ -7,6 +7,7 @@ import { AvatarPicker } from "@/components/avatar-picker";
 import { Loading } from "@/components/loading";
 import {
   CALL_LANGUAGES,
+  getCapabilities,
   getProfile,
   saveProfile,
   type ProfileUpdate,
@@ -87,9 +88,16 @@ export default function AccountPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [canEscalate, setCanEscalate] = useState<boolean | null>(null);
   const sessionExpired = useSessionExpiry();
 
   const email = user?.email ?? profile?.email ?? null;
+
+  useEffect(() => {
+    getCapabilities()
+      .then((h) => setCanEscalate(Boolean(h.capabilities.hasEscalation)))
+      .catch(() => setCanEscalate(null));
+  }, []);
 
   useEffect(() => {
     getProfile()
@@ -221,6 +229,7 @@ export default function AccountPage() {
               value={value}
               set={set}
               saving={saving}
+              canEscalate={canEscalate}
               onSubmit={(event) => {
                 event.preventDefault();
                 void save(draft);
@@ -273,12 +282,15 @@ function EditForm({
   value,
   set,
   saving,
+  canEscalate,
   onSubmit,
   onCancel,
 }: {
   value: (key: keyof ProfileUpdate) => string;
   set: (key: keyof ProfileUpdate, next: string) => void;
   saving: boolean;
+  /** null while unknown, so nothing is claimed before the answer arrives. */
+  canEscalate: boolean | null;
   onSubmit: (event: React.FormEvent) => void;
   onCancel: () => void;
 }) {
@@ -333,6 +345,16 @@ function EditForm({
         <p className="mt-3 max-w-prose text-[13px] leading-relaxed text-ink-soft">
           Orion messages you mid-call when it needs you. Leave blank and it carries on alone.
         </p>
+        {/* Asking for a number that nothing can message is worse than not
+            asking. The tool is honest with the agent when no channel is
+            connected; this is the same honesty pointed at the customer. */}
+        {canEscalate === false && (
+          <p className="mt-3 max-w-prose rounded border border-partial/40 bg-partial/10 px-4 py-3 text-[13px] leading-relaxed text-ink-soft">
+            No messaging channel is connected on this deployment yet, so these are
+            stored but nothing will be sent. Orion still stops rather than guessing,
+            and the call is flagged on the negotiation.
+          </p>
+        )}
         <div className="mt-5 grid gap-5 sm:grid-cols-2">{ESCALATION.map(input)}</div>
       </section>
 

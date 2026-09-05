@@ -169,9 +169,15 @@ there.
 Without both of these, Orion falls back to a local SQLite file with no backups.
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. **Project Settings → API**.
-3. `SUPABASE_URL` is the **Project URL**.
-4. `SUPABASE_SERVICE_KEY` is the **`service_role`** key, listed under Project
+2. Run **[`backend/migrations/001_init.sql`](backend/migrations/001_init.sql)** in the
+   SQL editor. It creates both tables, the deny-all row-level security, the
+   `updated_at` triggers, the two functions that meter the free allowance
+   atomically, and the private `call-recordings` bucket. Every statement is
+   idempotent, so running it against an existing project is also how you check
+   the two agree.
+3. **Project Settings → API**.
+4. `SUPABASE_URL` is the **Project URL**.
+5. `SUPABASE_SERVICE_KEY` is the **`service_role`** key, listed under Project
    API keys. It is the secret one, not `anon` / publishable.
 
 The service key bypasses row-level security, which is deliberate here: identity
