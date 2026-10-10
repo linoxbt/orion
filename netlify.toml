@@ -14,7 +14,7 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# The deployed backend (FastAPI on Railway, service `backend` in the `orion`
+# The deployed backend (FastAPI on Railway, service `orion` in the `orion`
 # project). Both names point at the same host:
 #   NEXT_PUBLIC_API_URL is read in the browser bundle for the public GETs
 #     (health, playbooks, bill ingestion).
@@ -23,8 +23,8 @@
 # Neither is a secret - it's a public URL - so they live in config rather
 # than only in the Netlify UI, which keeps a fresh clone deployable.
 [build.environment]
-  NEXT_PUBLIC_API_URL = "https://backend-production-cf6d9.up.railway.app"
-  API_URL = "https://backend-production-cf6d9.up.railway.app"
+  NEXT_PUBLIC_API_URL = "https://orion-production-e376.up.railway.app"
+  API_URL = "https://orion-production-e376.up.railway.app"
   # Dynamic's project identifier. Public by design - it names the project to
   # Dynamic's hosted widget and authorizes nothing. Authorization happens in
   # web/lib/auth.ts, which verifies the signed session JWT against Dynamic's
@@ -40,8 +40,8 @@
 # Deploy Previews and branch builds get the same backend. Split this out if a
 # staging backend ever exists.
 [context.deploy-preview.environment]
-  NEXT_PUBLIC_API_URL = "https://backend-production-cf6d9.up.railway.app"
-  API_URL = "https://backend-production-cf6d9.up.railway.app"
+  NEXT_PUBLIC_API_URL = "https://orion-production-e376.up.railway.app"
+  API_URL = "https://orion-production-e376.up.railway.app"
   # Dynamic's project identifier. Public by design - it names the project to
   # Dynamic's hosted widget and authorizes nothing. Authorization happens in
   # web/lib/auth.ts, which verifies the signed session JWT against Dynamic's
@@ -52,8 +52,8 @@
   # it the links stay relative, which keeps a preview inside itself.
 
 [context.branch-deploy.environment]
-  NEXT_PUBLIC_API_URL = "https://backend-production-cf6d9.up.railway.app"
-  API_URL = "https://backend-production-cf6d9.up.railway.app"
+  NEXT_PUBLIC_API_URL = "https://orion-production-e376.up.railway.app"
+  API_URL = "https://orion-production-e376.up.railway.app"
   # Dynamic's project identifier. Public by design - it names the project to
   # Dynamic's hosted widget and authorizes nothing. Authorization happens in
   # web/lib/auth.ts, which verifies the signed session JWT against Dynamic's
