@@ -67,15 +67,29 @@ async def _migrate_sqlite_to_supabase() -> None:
         return
 
     migrated = 0
+    skipped_samples = 0
+    failed = 0
     for row in rows:
         try:
             session = NegotiationSession.model_validate_json(row[0])
+            # Demo rows belong to the temporary SQLite deployment, not the
+            # customer's recovered history in Supabase.
+            if session.is_sample:
+                skipped_samples += 1
+                continue
             await supabase_store.save_session(session)
             migrated += 1
         except Exception as exc:  # noqa: BLE001 - one bad row must not stop the rest
+            failed += 1
             logger.warning("Could not migrate a local negotiation: %s", exc)
 
-    logger.info("Migrated %s/%s local negotiations into Supabase", migrated, len(rows))
+    logger.info(
+        "Migrated %s local negotiations into Supabase; skipped %s samples; failed %s",
+        migrated, skipped_samples, failed,
+    )
+    if failed:
+        # A retry on the next startup is safe because saves upsert by task_id.
+        return
     # Rename rather than delete: if the migration was wrong, the data is still
     # on disk to look at.
     path.rename(path.with_suffix(".db.migrated"))
